@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 	Copyright (C) 2021 Damsel
 
 	This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
@@ -20,23 +20,18 @@
         WindowStartupLocation="Manual"
         Background="{x:Null}"
         AllowsTransparency="True"
-        Opacity="0.1" SourceInitialized="Window_SourceInitialized">
+        Opacity="{Binding Opacity}" 
+        SourceInitialized="Window_SourceInitialized">
     <Grid IsHitTestVisible="False">
-        <!--<Image Source="/Images/hypno0.jpg"></Image>-->
         <MediaElement 
             x:Name="FirstVideo"
-            Source="Videos/hypno1.mp4"          
+            Source="{Binding CurrentSource}"
             Stretch="UniformToFill"
             LoadedBehavior="Manual"
             MediaEnded="FirstVideo_MediaEnded"
+            MediaFailed="FirstVideo_MediaFailed"
+            Volume="{Binding Volume}"
             >
         </MediaElement>
-        <!--<MediaElement 
-            x:Name="SecondVideo"
-            Source="Videos/hypno1.mp4"          
-            Stretch="UniformToFill"
-            LoadedBehavior="Manual"
-            MediaEnded="FirstVideo_MediaEnded">
-        </MediaElement>-->
     </Grid>
 </Window>

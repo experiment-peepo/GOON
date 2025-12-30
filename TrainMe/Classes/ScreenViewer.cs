@@ -1,4 +1,4 @@
-﻿/*
+/*
 	Copyright (C) 2021 Damsel
 
 	This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
@@ -27,7 +27,11 @@ namespace TrainMe.Classes {
         }
 
         public override string ToString() {
-            return "Monitor " + ID;
+            var name = Screen?.DeviceName ?? "Unknown";
+            var bounds = Screen?.Bounds;
+            var res = bounds.HasValue ? ($"{bounds.Value.Width}x{bounds.Value.Height}") : "";
+            var primary = (Screen != null && Screen.Primary) ? " (Primary)" : "";
+            return $"M{ID}: {name} {res}{primary}";
         }
     }
 }

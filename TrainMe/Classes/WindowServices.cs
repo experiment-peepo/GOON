@@ -1,4 +1,4 @@
-﻿/*
+/*
 	Copyright (C) 2021 Damsel
 
 	This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
@@ -17,6 +17,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using System.Runtime.Versioning;
 using System.Windows.Interop;
 
 namespace TrainMe.Classes {
@@ -44,13 +45,23 @@ namespace TrainMe.Classes {
 
 
         }
+        [SupportedOSPlatform("windows")]
         public static Screen[] GetAllScreens()
         {
+#if WINDOWS
             return Screen.AllScreens;
+#else
+            return new Screen[0];
+#endif
         }
+        [SupportedOSPlatform("windows")]
         public static int GetNumberOfScreens()
         {
+#if WINDOWS
             return Screen.AllScreens.Length;
+#else
+            return 0;
+#endif
         }
 
         public static List<ScreenViewer> GetAllScreenViewers() {
@@ -61,12 +72,15 @@ namespace TrainMe.Classes {
             return list;
         }
 
+        [SupportedOSPlatform("windows")]
         public static void MoveWindowToScreen(Window window, Screen screen) {
+#if WINDOWS
             System.Drawing.Rectangle r = screen.WorkingArea;
             window.Top = r.Top;
             window.Left = r.Left;
             window.Width = r.Width;
             window.Height = r.Height;
+#endif
         }
     }
 }

@@ -1,0 +1,23 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+*.txt
+msbuild_debug.txt
+
+# JetBrains
+.idea/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
