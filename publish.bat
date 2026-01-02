@@ -1,10 +1,10 @@
 @echo off
-REM Publish script for TrainMe - Standalone Portable Executable
+REM Publish script for TrainMeX - Standalone Portable Executable
 REM This script builds a self-contained, single-file executable
 
-echo Building TrainMe as standalone portable executable...
+echo Building TrainMeX as standalone portable executable...
 
-set PROJECT_PATH=TrainMe\TrainMeX\TrainMeX.csproj
+set PROJECT_PATH=TrainMeX\TrainMeX.csproj
 set OUTPUT_PATH=publish
 
 REM Clean previous publish

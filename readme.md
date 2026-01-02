@@ -1,5 +1,5 @@
 ## What is this?
-This is hypnosis software made using WPF framework, it is able to play videos in fullscreen mode across multiple screens with separated settings for opacity, sound and video list.
+This is TrainMeX, a hypnosis software made using WPF framework, it is able to play videos in fullscreen mode across multiple screens with separated settings for opacity, sound and video list.
 
 ## Features
 - Multi-screen video playback with independent settings

@@ -795,7 +795,7 @@ namespace TrainMeX.ViewModels {
 
         private void LoadPlaylist(object obj) {
             var dlg = new OpenFileDialog {
-                Filter = "TrainMe Playlist|*.json"
+                Filter = "TrainMeX Playlist|*.json"
             };
             if (dlg.ShowDialog() == true) {
                 _ = LoadPlaylistAsync(dlg.FileName).ContinueWith(task => {

@@ -1,9 +1,9 @@
-# Publish script for TrainMe - Standalone Portable Executable
+# Publish script for TrainMeX - Standalone Portable Executable
 # This script builds a self-contained, single-file executable
 
-Write-Host "Building TrainMe as standalone portable executable..." -ForegroundColor Green
+Write-Host "Building TrainMeX as standalone portable executable..." -ForegroundColor Green
 
-$projectPath = "TrainMe\TrainMeX\TrainMeX.csproj"
+$projectPath = "TrainMeX\TrainMeX.csproj"
 $outputPath = "publish"
 
 # Clean previous publish
@@ -26,7 +26,8 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "`nBuild successful!" -ForegroundColor Green
     Write-Host "Standalone executable location: $PWD\$outputPath\TrainMeX.exe" -ForegroundColor Cyan
     Write-Host "`nThe executable is portable and can be run from any location." -ForegroundColor Yellow
-} else {
+}
+else {
     Write-Host "`nBuild failed with exit code: $LASTEXITCODE" -ForegroundColor Red
     exit $LASTEXITCODE
 }

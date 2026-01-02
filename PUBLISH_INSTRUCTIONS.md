@@ -1,6 +1,6 @@
-# Publishing TrainMe as Standalone Portable Executable
+# Publishing TrainMeX as Standalone Portable Executable
 
-This document explains how to build TrainMe as a standalone, portable executable that includes all dependencies and requires no installation.
+This document explains how to build TrainMeX as a standalone, portable executable that includes all dependencies and requires no installation.
 
 ## Prerequisites
 
