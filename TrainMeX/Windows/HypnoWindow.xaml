@@ -34,7 +34,7 @@
             MediaFailed="FirstVideo_MediaFailed"
             MediaOpened="FirstVideo_MediaOpened"
             Volume="{Binding Volume}"
-            ScrubbingEnabled="True"
+            ScrubbingEnabled="False"
             RenderOptions.BitmapScalingMode="LowQuality"
             >
             <MediaElement.CacheMode>
