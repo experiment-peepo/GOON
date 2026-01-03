@@ -11,6 +11,10 @@
 *.sln.docstates
 TrainMeX/Videos
 
+# Application runtime-generated user files
+settings.json
+session.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

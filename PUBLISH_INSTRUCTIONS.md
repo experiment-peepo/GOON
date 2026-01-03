@@ -21,7 +21,7 @@ publish.bat
 
 ### Option 3: Manual Command
 ```bash
-dotnet publish TrainMe\TrainMeX\TrainMeX.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish TrainMeX\TrainMeX.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 ```
 
 ## Output
@@ -44,7 +44,7 @@ The executable will be approximately 50-100 MB as it includes the entire .NET ru
 
 ## Distribution
 
-Simply copy the `TrainMe.exe` file to any location. The application will:
+Simply copy the `TrainMeX.exe` file to any location. The application will:
 - Create `settings.json` in the same directory for user preferences
 - Create `session.json` in the same directory for session state
 - Work from any folder without requiring installation or registry entries
