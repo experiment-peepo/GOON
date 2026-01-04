@@ -152,6 +152,13 @@ namespace TrainMeX.Tests {
             Assert.False(StartupManager.IsStartupEnabled());
         }
 
+        [Fact]
+        public void IsStartupEnabled_MultipleCalls_ResultIsConsistent() {
+            var res1 = StartupManager.IsStartupEnabled();
+            var res2 = StartupManager.IsStartupEnabled();
+            Assert.Equal(res1, res2);
+        }
+
         public void Dispose() {
             // Restore original startup state
             try {

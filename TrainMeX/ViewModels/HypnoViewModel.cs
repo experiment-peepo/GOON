@@ -167,9 +167,26 @@ namespace TrainMeX.ViewModels {
                 }
                 
                 // Check if current file has failed too many times
-                var currentPath = _files[_currentPos]?.FilePath;
-                if (currentPath != null && _fileFailureCounts.TryGetValue(currentPath, out int failures) && failures >= MaxFailuresPerFile) {
+                var item = _files[_currentPos];
+                var currentPath = item?.FilePath;
+                if (currentPath == null) continue;
+
+                if (_fileFailureCounts.TryGetValue(currentPath, out int failures) && failures >= MaxFailuresPerFile) {
                     continue; // Skip this file, try next
+                }
+
+                // Deeper validation to avoid LoadCurrentVideo recursion
+                bool isValid = true;
+                if (item.IsUrl) {
+                    if (!FileValidator.ValidateVideoUrl(currentPath, out _)) isValid = false;
+                } else {
+                    if (!Path.IsPathRooted(currentPath) || !File.Exists(currentPath)) isValid = false;
+                }
+
+                if (!isValid) {
+                    // Mark as failed and continue
+                    _fileFailureCounts.AddOrUpdate(currentPath, MaxFailuresPerFile, (k, v) => MaxFailuresPerFile);
+                    continue;
                 }
                 
                 break; // Found a valid file
@@ -222,10 +239,6 @@ namespace TrainMeX.ViewModels {
                     // For URLs, validate URL format
                     if (!FileValidator.ValidateVideoUrl(path, out string urlValidationError)) {
                         Logger.Warning($"URL validation failed for '{_currentItem.FileName}': {urlValidationError}. Skipping to next video.");
-                         lock (_loadLock) {
-                             _isLoading = false;
-                            _recursionDepth = Math.Max(0, _recursionDepth - 1); // Decrement before recursive call
-                        }
                         PlayNext();
                         return;
                     }
@@ -233,10 +246,6 @@ namespace TrainMeX.ViewModels {
                     // For local files, check if path is rooted
                     if (!Path.IsPathRooted(path)) {
                         Logger.Warning($"Non-rooted path detected for '{_currentItem.FileName}': {path}. Skipping to next video.");
-                        lock (_loadLock) {
-                            _isLoading = false;
-                            _recursionDepth = Math.Max(0, _recursionDepth - 1); // Decrement on exit
-                        }
                         // Skip to next video instead of stalling
                         PlayNext();
                         return;

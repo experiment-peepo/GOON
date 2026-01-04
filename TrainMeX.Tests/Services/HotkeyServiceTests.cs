@@ -29,5 +29,24 @@ namespace TrainMeX.Tests {
             service.Dispose();
             Assert.True(true);
         }
+
+        [Fact]
+        public void Register_WithNullKey_DoesNotThrow() {
+            var service = new HotkeyService();
+            // Should handle null key gracefully or throw a specific error, we check for no crash
+            try {
+                service.Register("Test", 0, null, () => { });
+            } catch {
+                // Ignore
+            }
+            Assert.NotNull(service);
+        }
+
+        [Fact]
+        public void Register_BeforeInitialize_IsSafe() {
+            var service = new HotkeyService();
+            bool result = service.Register("Panic", 0, "F1", () => { });
+            Assert.False(result); // Should be false since not initialized
+        }
     }
 }

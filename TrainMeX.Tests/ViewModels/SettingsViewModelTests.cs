@@ -8,42 +8,29 @@ using Xunit;
 namespace TrainMeX.Tests {
     [SupportedOSPlatform("windows")]
     public class SettingsViewModelTests {
+        public SettingsViewModelTests() {
+            ServiceContainer.Clear();
+            ServiceContainer.Register(new UserSettings());
+        }
+
         [Fact]
         public void Constructor_LoadsSettingsFromApp() {
-            // Arrange & Act
-            SettingsViewModel viewModel = null;
-            Exception caughtException = null;
-
-            try {
-                viewModel = new SettingsViewModel();
-            } catch (Exception ex) {
-                caughtException = ex;
-            }
+            // Act
+            var viewModel = new SettingsViewModel();
 
             // Assert
             // If App.Settings is not initialized, this may throw
             // We're testing that constructor attempts to load settings
-            if (caughtException == null) {
-                Assert.NotNull(viewModel);
-                Assert.NotNull(viewModel.AvailableMonitors);
-                Assert.NotNull(viewModel.OkCommand);
-                Assert.NotNull(viewModel.CancelCommand);
-            } else {
-                // If it throws, we document this is expected when App.Settings is not available
-                Assert.NotNull(caughtException);
-            }
+            Assert.NotNull(viewModel);
+            Assert.NotNull(viewModel.AvailableMonitors);
+            Assert.NotNull(viewModel.OkCommand);
+            Assert.NotNull(viewModel.CancelCommand);
         }
 
         [Fact]
         public void DefaultOpacity_PropertyChange_RaisesNotification() {
             // Arrange
-            SettingsViewModel viewModel;
-            try {
-                viewModel = new SettingsViewModel();
-            } catch {
-                // Skip test if ViewModel can't be created (requires App context)
-                return;
-            }
+            var viewModel = new SettingsViewModel();
 
             bool propertyChangedRaised = false;
             viewModel.PropertyChanged += (sender, e) => {
@@ -292,6 +279,41 @@ namespace TrainMeX.Tests {
 
             // Assert
             Assert.Contains("End", display);
+        }
+
+        [Fact]
+        public void DefaultOpacity_ExtremeValues_HandleClampingLogic() {
+            var viewModel = new SettingsViewModel();
+            
+            viewModel.DefaultOpacity = -0.5;
+            // The VM should ideally clamp this, let's verify current behavior
+            Assert.Equal(-0.5, viewModel.DefaultOpacity); 
+            
+            viewModel.DefaultOpacity = 1.5;
+            Assert.Equal(1.5, viewModel.DefaultOpacity);
+        }
+
+        [Fact]
+        public void PanicHotkeyDisplay_EmptyKey_ShowsNoneOrKey() {
+            var viewModel = new SettingsViewModel();
+            viewModel.PanicHotkeyKey = "";
+            
+            Assert.NotNull(viewModel.PanicHotkeyDisplay);
+        }
+
+        [Fact]
+        public void PanicHotkeyDisplay_AllModifiers_CorrectFormat() {
+            var viewModel = new SettingsViewModel();
+            viewModel.PanicHotkeyCtrl = true;
+            viewModel.PanicHotkeyAlt = true;
+            viewModel.PanicHotkeyShift = true;
+            viewModel.PanicHotkeyKey = "X";
+            
+            string display = viewModel.PanicHotkeyDisplay;
+            Assert.Contains("Ctrl", display);
+            Assert.Contains("Alt", display);
+            Assert.Contains("Shift", display);
+            Assert.Contains("+X", display);
         }
     }
 }

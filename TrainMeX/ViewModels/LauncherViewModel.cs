@@ -25,6 +25,7 @@ namespace TrainMeX.ViewModels {
     /// <summary>
     /// ViewModel for the main launcher window, managing video files, screens, and playback
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class LauncherViewModel : ObservableObject, IDisposable {
         public ObservableCollection<VideoItem> AddedFiles { get; } = new ObservableCollection<VideoItem>();
         public ObservableCollection<ScreenViewer> AvailableScreens { get; } = new ObservableCollection<ScreenViewer>();

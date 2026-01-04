@@ -1,87 +1,88 @@
 # TrainMeX
 
-TrainMeX is a hypnosis software application built using WPF (Windows Presentation Foundation) framework. It enables video playback in fullscreen mode across multiple screens with independent settings for opacity, sound, and video playlists per screen.
+![Build Status](https://github.com/experiment-peepo/TrainMe/actions/workflows/release.yml/badge.svg)
+![License](https://img.shields.io/github/license/experiment-peepo/TrainMe)
+
+**TrainMeX** is a specialized multi-screen video playback tool designed for immersive environments, therapy sessions, and installation art. It allows you to overlay video playback on specific monitors with independent opacity and audio controls, creating a seamless background experience without interfering with your primary workspace.
+
+![TrainMeX UI](assets/screenshot.png)
+
+## Table of Contents
+- [Features](#features)
+- [Use Cases](#use-cases)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Usage Guide](#usage-guide)
+- [Building from Source](#building-from-source)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
-- **Multi-screen video playback** with independent settings
-- **Per-screen controls** for opacity and sound
-- **Custom video playlists** per screen
-- **Global hotkey support** for quick access
-- **Portable standalone executable** - no installation required
-- **Comprehensive test suite** for reliability
+- **Multi-Monitor Support**: Assign videos to specific screens or span them across all monitors.
+- **Independent Controls**: Adjust volume and opacity per video/layer.
+- **Panic Button**: Instantly stop all playback with a global hotkey (Default: `Ctrl+Shift+End`).
+- **Session Saving**: Automatically restores your last playlist and settings.
+- **Format Support**: Plays any video format supported by Windows (mp4, mkv, avi, etc.).
+- **Stealth Mode**: Designed to run as an unobtrusive overlay.
 
-## Requirements
+## Use Cases
 
-- **Windows** operating system (x64)
-- **.NET 8.0 Runtime** (included in self-contained builds, not required for standalone executables)
+- **Exposure Therapy**: Gradually introduce visual stimuli on secondary screens while maintaining a safe primary focus.
+- **Media Installations**: Synchronize video loops across multiple displays for art exhibits or lobbies.
+- **Focus Environments**: Play ambient visual noise or nature scenes on peripheral monitors to improve concentration.
+- **Vjing / Live Performance**: Simple, reliable video triggering for background visuals.
 
 ## Quick Start
 
-1. Download or build the application (see [Building](#building) section)
-2. Run `TrainMeX.exe`
-3. Add video files and assign them to screens
-4. Configure opacity and volume per screen
-5. Start playback
+1. **Download**: Grab the latest `TrainMeX.exe` from the [Releases](https://github.com/experiment-peepo/TrainMe/releases) page.
+2. **Run**: Double-click `TrainMeX.exe`. No installation needed.
+3. **Add Content**: Drag and drop video files onto the launcher.
+4. **Assign**: Select which monitor each video should play on.
+5. **Play**: Click **Train Me!** (or "Start All") to begin playback.
 
-For detailed build instructions, see [PUBLISH_INSTRUCTIONS.md](PUBLISH_INSTRUCTIONS.md).
+## Installation
 
-## Building
+TrainMeX is a **portable application**.
+- **Prerequisites**: Windows 10/11 (x64).
+- **Setup**: None. Just unzip and run.
 
-The application can be built as a standalone, portable executable. See [PUBLISH_INSTRUCTIONS.md](PUBLISH_INSTRUCTIONS.md) for detailed build instructions.
+## Usage Guide
 
-### Quick Build Options
+### The Launcher
+The main window acts as your control center.
+- **Browse / Drag & Drop**: Add files to your playlist.
+- **Assignment Dropdown**: Choose the target monitor for each video.
+- **Opacity Slider**: detailed control over video transparency (0% = invisible, 100% = fully opaque).
+- **Volume Slider**: Individual audio levels.
 
-**PowerShell (Recommended):**
-```powershell
-.\publish.ps1
-```
+### During Playback
+- **Active Players**: You'll see a small list of active video windows in the launcher.
+- **Control**: You can Pause, Play, or Skip videos directly from the launcher without disturbing the fullscreen playback.
+- **Panic Key**: Hit `Ctrl+Shift+End` (configurable in settings) to immediately kill all video windows.
 
-**Batch:**
-```cmd
-publish.bat
-```
+## Building from Source
 
-**Manual:**
-```bash
-dotnet publish TrainMeX\TrainMeX.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
-```
+To build TrainMeX yourself, you'll need the **.NET 8.0 SDK**.
 
-The executable will be generated in the `publish` directory.
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/experiment-peepo/TrainMe.git
+   cd TrainMe
+   ```
 
-## Usage
+2. **Build and Publish (PowerShell)**
+   ```powershell
+   .\publish.ps1
+   ```
+   *This script runs the tests and produces a single-file executable in the `publish/` folder.*
 
-- Add video files through the launcher interface
-- Assign videos to specific screens
-- Configure opacity (transparency) and volume settings per screen
-- Use global hotkeys for quick control (default: Ctrl+Shift+End for panic/stop)
-- Settings and session data are automatically saved to JSON files in the executable directory
+## Contributing
 
-## Testing
-
-The project includes comprehensive unit and integration tests. See [TrainMeX.Tests/README.md](TrainMeX.Tests/README.md) for testing information.
-
-Run tests with:
-```bash
-dotnet test
-```
-
-## Known Issues
-
-- **Playlist Import**: The playlist import functionality is currently broken and needs further testing. Importing playlists from external sources may not work as expected. Manual file addition is recommended as an alternative.
+We welcome contributions!
+- **Bug Reports**: Please use the [Bug Report Template](.github/ISSUE_TEMPLATE/bug_report.md).
+- **Feature Requests**: Use the [Feature Request Template](.github/ISSUE_TEMPLATE/feature_request.md) for new ideas.
 
 ## License
 
-This software is licensed under the **GNU General Public License version 3 (GPLv3)**.
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU General Public License](https://www.gnu.org/licenses/) for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-See [license.txt](license.txt) for the full license text.
-
-## Copyright
-
-Copyright (C) 2021 Damsel
+Distributed under the [GNU General Public License v3.0](LICENSE). See `LICENSE` for more information.

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 
 namespace TrainMeX.Classes {
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public class HotkeyService : IDisposable {
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);

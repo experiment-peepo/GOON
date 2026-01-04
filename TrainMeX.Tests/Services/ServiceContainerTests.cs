@@ -4,6 +4,10 @@ using Xunit;
 
 namespace TrainMeX.Tests {
     public class ServiceContainerTests {
+        public ServiceContainerTests() {
+            ServiceContainer.Clear();
+        }
+
         public interface ITestService {
             string GetValue();
         }
@@ -142,6 +146,68 @@ namespace TrainMeX.Tests {
             Assert.True(result);
             Assert.Equal(42, value);
         }
+        [Fact]
+        public void Clear_WithRegisteredServices_ClearsAllServices() {
+            ServiceContainer.Register<int>(42);
+            ServiceContainer.Register<string>("Test");
+            
+            ServiceContainer.Clear();
+            
+            Assert.False(ServiceContainer.TryGet<int>(out _));
+            Assert.False(ServiceContainer.TryGet<string>(out _));
+        }
+
+        #region Edge Cases
+
+        [Fact]
+        public void Concurrent_RegisterAndGet_IsThreadSafe() {
+            const int threadCount = 20;
+            const int iterationsPerThread = 1000;
+            var threads = new Thread[threadCount];
+            var exceptions = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+
+            for (int i = 0; i < threadCount; i++) {
+                int threadId = i;
+                threads[i] = new Thread(() => {
+                    try {
+                        for (int j = 0; j < iterationsPerThread; j++) {
+                            ServiceContainer.Register<int>(j);
+                            ServiceContainer.TryGet<int>(out _);
+                            ServiceContainer.Register<string>($"Thread {threadId} Iter {j}");
+                            ServiceContainer.TryGet<string>(out _);
+                        }
+                    } catch (Exception ex) {
+                        exceptions.Enqueue(ex);
+                    }
+                });
+                threads[i].Start();
+            }
+
+            foreach (var thread in threads) {
+                thread.Join();
+            }
+
+            Assert.Empty(exceptions);
+        }
+
+        [Fact]
+        public void Register_SameInstanceMultipleTypes_Works() {
+            var service = new TestService();
+            ServiceContainer.Register<ITestService>(service);
+            ServiceContainer.Register<TestService>(service);
+
+            Assert.Same(service, ServiceContainer.Get<ITestService>());
+            Assert.Same(service, ServiceContainer.Get<TestService>());
+        }
+
+        [Fact]
+        public void Clear_WhenAlreadyEmpty_DoesNothing() {
+            ServiceContainer.Clear();
+            ServiceContainer.Clear();
+            Assert.Equal(0, ServiceContainer._services.Count);
+        }
+
+        #endregion
     }
 }
 

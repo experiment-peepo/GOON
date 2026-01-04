@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.Win32;
 
 namespace TrainMeX.Classes {
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public static class StartupManager {
         private const string RegistryKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
         private const string AppName = "TrainMeX";

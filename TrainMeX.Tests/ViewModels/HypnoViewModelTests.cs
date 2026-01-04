@@ -7,6 +7,12 @@ using Xunit;
 
 namespace TrainMeX.Tests {
     public class HypnoViewModelTests {
+        public HypnoViewModelTests() {
+            // Reset container and register default settings for each test
+            ServiceContainer.Clear();
+            ServiceContainer.Register(new UserSettings());
+        }
+
         [Fact]
         public void Constructor_CreatesViewModel() {
             var viewModel = new HypnoViewModel();
@@ -228,6 +234,103 @@ namespace TrainMeX.Tests {
 
             Assert.Empty(exceptions);
         }
+
+        #region Edge Cases
+
+        [Fact]
+        public void OnMediaOpened_StaleSource_DoesNotResetLoading() {
+            var viewModel = new HypnoViewModel();
+            var item = new VideoItem("file:///test.mp4");
+            viewModel.SetQueue(new[] { item });
+            
+            // Expected source is now set in VM.
+            // Simulate a stale event with a different source
+            viewModel.CurrentSource = new Uri("file:///stale.mp4");
+            
+            // This should hit the stale check and return early
+            viewModel.OnMediaOpened();
+            
+            // No easy way to check internal _isLoading but success means no crash
+            Assert.NotNull(viewModel);
+        }
+
+        [Fact]
+        public void OnMediaFailed_UnrecoverableError_IncrementsFailureThreshold() {
+            var viewModel = new HypnoViewModel();
+            var item = new VideoItem("file:///broken.mp4");
+            viewModel.SetQueue(new[] { item });
+            
+            // COMException 0x8898050C is unrecoverable
+            var ex = new System.Runtime.InteropServices.COMException("Broken", unchecked((int)0x8898050C));
+            
+            // This should mark the file as failed immediately
+            viewModel.OnMediaFailed(ex);
+            
+            // Subsequent PlayNext should notice max failures and potentially stop if all failed
+            // We verify it doesn't crash
+            Assert.NotNull(viewModel);
+        }
+
+        [Fact]
+        public void RefreshOpacity_ForcesPropertyChanged() {
+            var viewModel = new HypnoViewModel();
+            bool eventRaised = false;
+            viewModel.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(HypnoViewModel.Opacity)) eventRaised = true;
+            };
+            
+            viewModel.RefreshOpacity();
+            
+            Assert.True(eventRaised);
+        }
+
+        [Fact]
+        public void TogglePlayPause_RapidCalls_IsConsistent() {
+            var viewModel = new HypnoViewModel();
+            viewModel.MediaState = System.Windows.Controls.MediaState.Pause;
+            
+            viewModel.TogglePlayPause();
+            Assert.Equal(System.Windows.Controls.MediaState.Play, viewModel.MediaState);
+            
+            viewModel.TogglePlayPause();
+            Assert.Equal(System.Windows.Controls.MediaState.Pause, viewModel.MediaState);
+        }
+
+        [Fact]
+        public void SyncPosition_WithZero_DoesNotThrow() {
+            var viewModel = new HypnoViewModel();
+            bool eventRaised = false;
+            viewModel.RequestSyncPosition += (s, e) => {
+                if (e == TimeSpan.Zero) eventRaised = true;
+            };
+            
+            viewModel.SyncPosition(TimeSpan.Zero);
+            Assert.True(eventRaised);
+        }
+
+        [Fact]
+        public void Volume_BoundaryValues_AreHandled() {
+            var viewModel = new HypnoViewModel();
+            
+            viewModel.Volume = -1.0;
+            Assert.Equal(-1.0, viewModel.Volume); // It doesn't clamp in VM currently, which is an edge case to note
+            
+            viewModel.Volume = 2.0;
+            Assert.Equal(2.0, viewModel.Volume);
+        }
+
+        [Fact]
+        public void SpeedRatio_BoundaryValues_AreHandled() {
+            var viewModel = new HypnoViewModel();
+            
+            viewModel.SpeedRatio = 0.0;
+            Assert.Equal(0.0, viewModel.SpeedRatio);
+            
+            viewModel.SpeedRatio = 10.0;
+            Assert.Equal(10.0, viewModel.SpeedRatio);
+        }
+
+        #endregion
     }
 }
 

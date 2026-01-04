@@ -215,6 +215,75 @@ namespace TrainMeX.Tests {
             cache.Remove("key1");
             Assert.Equal(1, cache.Count);
         }
+
+        #region Edge Cases
+
+        [Fact]
+        public void Concurrent_Access_IsThreadSafe() {
+            const int threadCount = 10;
+            const int iterationsPerThread = 1000;
+            var cache = new LruCache<int, int>(100);
+            var threads = new Thread[threadCount];
+            var exceptions = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+
+            for (int i = 0; i < threadCount; i++) {
+                int threadId = i;
+                threads[i] = new Thread(() => {
+                    try {
+                        for (int j = 0; j < iterationsPerThread; j++) {
+                            int key = (threadId * iterationsPerThread) + j;
+                            cache.Set(key, j);
+                            cache.TryGetValue(key, out _);
+                        }
+                    } catch (Exception ex) {
+                        exceptions.Enqueue(ex);
+                    }
+                });
+                threads[i].Start();
+            }
+
+            foreach (var thread in threads) {
+                thread.Join();
+            }
+
+            Assert.Empty(exceptions);
+        }
+
+        [Fact]
+        public void Set_WithNullKey_ThrowsArgumentNullException() {
+            var cache = new LruCache<string, int>(10);
+            Assert.Throws<ArgumentNullException>(() => cache.Set(null!, 100));
+        }
+
+        [Fact]
+        public void TryGetValue_WithNullKey_ThrowsArgumentNullException() {
+            var cache = new LruCache<string, int>(10);
+            Assert.Throws<ArgumentNullException>(() => cache.TryGetValue(null!, out _));
+        }
+
+        [Fact]
+        public void Set_WithNullValue_IsAllowed() {
+            var cache = new LruCache<string, string?>(10);
+            cache.Set("key1", null);
+            
+            var result = cache.TryGetValue("key1", out string? value);
+            Assert.True(result);
+            Assert.Null(value);
+        }
+
+        [Fact]
+        public void RapidUpdates_ToSameKey_MaintainsCorrectState() {
+            var cache = new LruCache<string, int>(3);
+            for (int i = 0; i < 1000; i++) {
+                cache.Set("key1", i);
+            }
+            
+            Assert.Equal(1, cache.Count);
+            Assert.True(cache.TryGetValue("key1", out int value));
+            Assert.Equal(999, value);
+        }
+
+        #endregion
     }
 }
 

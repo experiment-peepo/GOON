@@ -13,6 +13,7 @@ using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using DragEventArgs = System.Windows.DragEventArgs;
 
 namespace TrainMeX.Windows {
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public partial class LauncherWindow : Window {
         private LauncherViewModel ViewModel => DataContext as LauncherViewModel;
 

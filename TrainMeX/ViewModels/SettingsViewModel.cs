@@ -9,6 +9,7 @@ namespace TrainMeX.ViewModels {
     /// <summary>
     /// ViewModel for the Settings window
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public class SettingsViewModel : ObservableObject {
         private double _defaultOpacity;
         private double _defaultVolume;

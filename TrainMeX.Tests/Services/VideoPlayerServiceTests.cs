@@ -211,6 +211,39 @@ namespace TrainMeX.Tests {
                 // Ignore cleanup errors
             }
         }
+
+        [Fact]
+        public void SetVolumeAll_BoundaryValues_DoesNotThrow() {
+            var service = new VideoPlayerService();
+            service.SetVolumeAll(-1.0);
+            service.SetVolumeAll(2.0);
+            Assert.NotNull(service);
+        }
+
+        [Fact]
+        public void SetOpacityAll_BoundaryValues_DoesNotThrow() {
+            var service = new VideoPlayerService();
+            service.SetOpacityAll(-1.0);
+            service.SetOpacityAll(2.0);
+            Assert.NotNull(service);
+        }
+
+        [Fact]
+        public void ClearFileExistenceCache_Twice_IsSafe() {
+            var service = new VideoPlayerService();
+            service.ClearFileExistenceCache();
+            service.ClearFileExistenceCache();
+            Assert.NotNull(service);
+        }
+
+        [Fact]
+        public async Task PlayPerMonitor_WithNullValuesInDictionary_DoesNotThrow() {
+            var service = new VideoPlayerService();
+            // Dictionary cannot have null key. 
+            var assignments = new Dictionary<ScreenViewer, IEnumerable<VideoItem>>();
+            await service.PlayPerMonitorAsync(assignments);
+            Assert.NotNull(service);
+        }
     }
 }
 

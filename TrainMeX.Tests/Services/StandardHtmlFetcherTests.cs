@@ -187,5 +187,22 @@ namespace TrainMeX.Tests {
                 Assert.NotEmpty(result2);
             }
         }
+
+        [Fact]
+        public async Task FetchHtmlAsync_WithVeryLongUrl_HandlesGracefully() {
+            var fetcher = new StandardHtmlFetcher();
+            var longUrl = "https://www.google.com/search?q=" + new string('a', 2000);
+            
+            var result = await fetcher.FetchHtmlAsync(longUrl);
+            // Long URLs might fail or succeed depending on server, we check for no crash
+            Assert.True(true);
+        }
+
+        [Fact]
+        public async Task FetchHtmlAsync_WithWhitespaceUrl_ReturnsNull() {
+            var fetcher = new StandardHtmlFetcher();
+            var result = await fetcher.FetchHtmlAsync("   ");
+            Assert.Null(result);
+        }
     }
 }

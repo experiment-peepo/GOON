@@ -13,6 +13,7 @@ namespace TrainMeX.Classes {
     /// <summary>
     /// Service for managing video playback across multiple screens
     /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public class VideoPlayerService {
         readonly List<HypnoWindow> players = new List<HypnoWindow>();
         private readonly object _playersLock = new object();

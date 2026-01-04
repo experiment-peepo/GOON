@@ -8,10 +8,10 @@ namespace TrainMeX.Classes {
     /// Simple file-based logger with different log levels
     /// </summary>
     public static class Logger {
-        private static readonly object _lock = new object();
-        private static string _logFilePath;
-        private static int _consecutiveFailures = 0;
-        private const int MaxConsecutiveFailures = 10; // Stop trying file logging after this many failures
+        internal static readonly object _lock = new object();
+        internal static string _logFilePath;
+        internal static int _consecutiveFailures = 0;
+        internal const int MaxConsecutiveFailures = 10; // Stop trying file logging after this many failures
 
         static Logger() {
             _logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TrainMeX.log");

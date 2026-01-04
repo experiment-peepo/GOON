@@ -15,10 +15,11 @@ namespace TrainMeX {
     /// <summary>
     /// Interaction logic for App.xaml
     /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     public partial class App : System.Windows.Application {
-        public static Classes.VideoPlayerService VideoService => Classes.ServiceContainer.Get<Classes.VideoPlayerService>();
-        public static Classes.UserSettings Settings => Classes.ServiceContainer.Get<Classes.UserSettings>();
-        public static Classes.HotkeyService Hotkeys => Classes.ServiceContainer.Get<Classes.HotkeyService>();
+        public static Classes.VideoPlayerService VideoService => Classes.ServiceContainer.TryGet<Classes.VideoPlayerService>(out var service) ? service : null;
+        public static Classes.UserSettings Settings => Classes.ServiceContainer.TryGet<Classes.UserSettings>(out var settings) ? settings : null;
+        public static Classes.HotkeyService Hotkeys => Classes.ServiceContainer.TryGet<Classes.HotkeyService>(out var hotkeys) ? hotkeys : null;
 
         protected override void OnStartup(StartupEventArgs e) {
             base.OnStartup(e);

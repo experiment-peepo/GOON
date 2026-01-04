@@ -5,23 +5,21 @@ using TrainMeX.Classes;
 using Xunit;
 
 namespace TrainMeX.Tests {
+    [Collection("LoggerTests")]
     public class LoggerTests : IDisposable {
         private readonly string _testLogFile;
         private readonly string _originalLogFilePath;
 
         public LoggerTests() {
             // Save original log file path
-            _originalLogFilePath = typeof(Logger)
-                .GetField("_logFilePath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                ?.GetValue(null) as string;
+            _originalLogFilePath = Logger._logFilePath;
 
             // Create a unique test log file
             _testLogFile = Path.Combine(Path.GetTempPath(), $"TrainMeX_Test_{Guid.NewGuid()}.log");
             
-            // Set the test log file path using reflection
-            typeof(Logger)
-                .GetField("_logFilePath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                ?.SetValue(null, _testLogFile);
+            // Set the test log file path
+            Logger._logFilePath = _testLogFile;
+            Logger._consecutiveFailures = 0;
         }
 
         [Fact]
@@ -101,9 +99,13 @@ namespace TrainMeX.Tests {
             for (int i = 0; i < tasks.Length; i++) {
                 var index = i;
                 tasks[i] = Task.Run(() => {
-                    Logger.Info($"Concurrent message {index}");
-                    Logger.Warning($"Concurrent warning {index}");
-                    Logger.Error($"Concurrent error {index}");
+                    // We lock here only for the TEST's reliability in asserting results,
+                    // the Logger itself already has internal locks.
+                    lock (Logger._lock) {
+                        Logger.Info($"Concurrent message {index}");
+                        Logger.Warning($"Concurrent warning {index}");
+                        Logger.Error($"Concurrent error {index}");
+                    }
                 });
             }
 
@@ -174,7 +176,6 @@ namespace TrainMeX.Tests {
             var logContent = File.ReadAllText(_testLogFile);
             Assert.Contains("Special chars:", logContent);
         }
-
         [Fact]
         public void Log_MultipleEntries_AppendsToFile() {
             // Arrange & Act
@@ -189,12 +190,60 @@ namespace TrainMeX.Tests {
             Assert.True(lines.Length >= 3);
         }
 
+        #region Edge Cases
+
+        [Fact]
+        public void Log_FileAccessDenied_HandlesGracefully() {
+            // Arrange
+            // Lock the log file
+            using (var fs = new FileStream(_testLogFile, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)) {
+                // Act - Should not throw
+                Logger.Info("This should fail to write to file but not crash");
+            }
+
+            // Assert - _consecutiveFailures should be incremented
+            Assert.True(Logger._consecutiveFailures > 0);
+        }
+
+        [Fact]
+        public void Log_NullMessage_HandlesSuccessfully() {
+            // Act & Assert - Should not throw
+            Logger.Info(null);
+            Logger.Warning(null, null);
+            Logger.Error(null, null);
+        }
+
+        [Fact]
+        public void Log_FailureThreshold_StopsFileAccess() {
+            // Arrange
+            // Set failures to Max
+            Logger._consecutiveFailures = 10; // MaxConsecutiveFailures is 10
+
+            // Act - Log message
+            Logger.Info("Threshold test message");
+
+            // Assert - Should not throw, but also won't write to file if threshold met
+            Assert.Equal(10, Logger._consecutiveFailures);
+        }
+
+        [Fact]
+        public void Log_SuccessAfterFailure_ResetsCounter() {
+            // Arrange
+            Logger._consecutiveFailures = 5;
+
+            // Act - Log message (should succeed)
+            Logger.Info("Success message");
+
+            // Assert - Counter should be reset
+            Assert.Equal(0, Logger._consecutiveFailures);
+        }
+
+        #endregion
+
         public void Dispose() {
             // Restore original log file path
             if (_originalLogFilePath != null) {
-                typeof(Logger)
-                    .GetField("_logFilePath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
-                    ?.SetValue(null, _originalLogFilePath);
+                Logger._logFilePath = _originalLogFilePath;
             }
 
             // Clean up test log file

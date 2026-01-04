@@ -7,7 +7,7 @@ namespace TrainMeX.Classes {
     /// Simple service container for dependency injection
     /// </summary>
     public class ServiceContainer {
-        private static readonly ConcurrentDictionary<Type, object> _services = new ConcurrentDictionary<Type, object>();
+        internal static readonly ConcurrentDictionary<Type, object> _services = new ConcurrentDictionary<Type, object>();
 
         /// <summary>
         /// Registers a service instance
@@ -19,6 +19,13 @@ namespace TrainMeX.Classes {
                 throw new ArgumentNullException(nameof(service));
             }
             _services[typeof(T)] = service;
+        }
+
+        /// <summary>
+        /// Clears all registered services
+        /// </summary>
+        public static void Clear() {
+            _services.Clear();
         }
 
         /// <summary>

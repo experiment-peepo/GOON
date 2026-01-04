@@ -268,7 +268,7 @@ namespace TrainMeX.Tests {
         public void ValidateVideoFile_WithInvalidExtension_ReturnsFalse() {
             var result = FileValidator.ValidateVideoFile(_testFilePath, out string errorMessage);
             Assert.False(result);
-            Assert.NotNull(errorMessage);
+            Assert.True(errorMessage != null); // Changed from Assert.NotNull(errorMessage)
             Assert.Contains("not supported", errorMessage);
         }
 
@@ -375,6 +375,76 @@ namespace TrainMeX.Tests {
             Assert.False(result);
             Assert.NotNull(errorMessage);
         }
+
+        #region Extra Edge Cases
+
+        [Fact]
+        public void IsValidPath_WithNetworkPath_ReturnsTrue() {
+            Assert.True(FileValidator.IsValidPath(@"\\server\share\video.mp4"));
+        }
+
+        [Fact]
+        public void IsValidPath_WithMixedSlashes_ReturnsTrue() {
+            Assert.True(FileValidator.IsValidPath(@"C:/Videos\video.mp4"));
+        }
+
+        [Fact]
+        public void IsValidPath_WithTrailingSlash_ReturnsTrue() {
+            Assert.True(FileValidator.IsValidPath(@"C:\Videos\"));
+        }
+
+        [Fact]
+        public void IsValidPath_WithLeadingTrailingWhitespace_ReturnsTrue() {
+            Assert.True(FileValidator.IsValidPath(@"  " + _testVideoFile + "  "));
+        }
+
+        [Fact]
+        public void IsValidPath_WithOnlyProtocol_ReturnsTrue() {
+            Assert.True(FileValidator.IsValidPath("C:"));
+        }
+
+        [Fact]
+        public void HasValidExtension_WithOnlyExtension_ReturnsTrue() {
+            Assert.True(FileValidator.HasValidExtension(".mp4"));
+        }
+
+        [Fact]
+        public void HasValidExtension_WithMultipleDots_ReturnsTrue() {
+            Assert.True(FileValidator.HasValidExtension("video.backup.mp4"));
+        }
+
+        [Fact]
+        public void IsValidUrl_WithNonStandardPort_ReturnsTrue() {
+            Assert.True(FileValidator.IsValidUrl("http://example.com:999"));
+        }
+
+        [Fact]
+        public void IsValidUrl_WithOnlyProtocol_ReturnsFalse() {
+            Assert.False(FileValidator.IsValidUrl("http://"));
+            Assert.False(FileValidator.IsValidUrl("https://"));
+        }
+
+        [Fact]
+        public void IsValidUrl_WithSpaces_ReturnsTrueDueToAutoEscaping() {
+            // .NET 8 Uri.TryCreate auto-escapes spaces in the path
+            Assert.True(FileValidator.IsValidUrl("http://example.com/video file.mp4"));
+        }
+
+        [Fact]
+        public void IsValidUrl_WithExtremelyLongUrl_ReturnsTrue() {
+            var longUrl = "http://example.com/" + new string('a', 5000) + ".mp4";
+            Assert.True(FileValidator.IsValidUrl(longUrl));
+        }
+
+        [Fact]
+        public void ValidateVideoUrl_WithPermissiveFallback_ReturnsTrue() {
+            var unknownUrl = "https://example.com/unknown-format";
+            var result = FileValidator.ValidateVideoUrl(unknownUrl, out string error);
+            Assert.True(result);
+            Assert.Contains("MediaElement will attempt to play it", error);
+        }
+
+        #endregion
 
         public void Dispose() {
             try {

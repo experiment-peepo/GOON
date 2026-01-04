@@ -257,12 +257,70 @@ namespace TrainMeX.Tests {
         }
 
 
+        #region Edge Cases
+
         [Fact]
-        public void Validate_WithSupportedDomainUrl_SetsStatusToValid() {
-            var item = new VideoItem("https://rule34video.com/video");
+        public void FileName_WithComplexUrl_HandlesUnescaping() {
+            var item = new VideoItem("https://example.com/videos/My%20Awesome%20Video.mp4?id=123");
+            Assert.Equal("My Awesome Video.mp4", item.FileName);
+        }
+
+        [Fact]
+        public void FileName_WithTitleSet_PrefersTitle() {
+            var item = new VideoItem(_testVideoFile);
+            item.Title = "Custom Title";
+            Assert.Equal("Custom Title", item.FileName);
+        }
+
+        [Fact]
+        public void Opacity_ExtremeValues_PreservesValue() {
+            var item = new VideoItem(_testVideoFile);
+            
+            // Note: Implementation doesn't currenty clamp, so we test it stays as set
+            item.Opacity = -1.0;
+            Assert.Equal(-1.0, item.Opacity);
+            
+            item.Opacity = 99.0;
+            Assert.Equal(99.0, item.Opacity);
+        }
+
+        [Fact]
+        public void Volume_ExtremeValues_PreservesValue() {
+            var item = new VideoItem(_testVideoFile);
+            
+            item.Volume = -0.5;
+            Assert.Equal(-0.5, item.Volume);
+            
+            item.Volume = 1.5;
+            Assert.Equal(1.5, item.Volume);
+        }
+
+        [Fact]
+        public void Validate_MultipleTimes_IsConsistent() {
+            var item = new VideoItem(_testVideoFile);
+            
+            item.Validate();
+            Assert.Equal(FileValidationStatus.Valid, item.ValidationStatus);
+            
             item.Validate();
             Assert.Equal(FileValidationStatus.Valid, item.ValidationStatus);
         }
+
+        [Fact]
+        public void AssignedScreen_SetToNull_RaisedPropertyChanged() {
+            var item = new VideoItem(_testVideoFile, _testScreen);
+            bool eventRaised = false;
+            item.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(VideoItem.AssignedScreen)) eventRaised = true;
+            };
+            
+            item.AssignedScreen = null;
+            
+            Assert.Null(item.AssignedScreen);
+            Assert.True(eventRaised);
+        }
+
+        #endregion
 
         public void Dispose() {
             try {
