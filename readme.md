@@ -12,6 +12,7 @@
 - [Use Cases](#use-cases)
 - [Quick Start](#quick-start)
 - [Installation](#installation)
+- [Supported Websites](#supported-websites)
 - [Usage Guide](#usage-guide)
 - [Building from Source](#building-from-source)
 - [Contributing](#contributing)
@@ -23,7 +24,8 @@
 - **Independent Controls**: Adjust volume and opacity per video/layer.
 - **Panic Button**: Instantly stop all playback with a global hotkey (Default: `Ctrl+Shift+End`).
 - **Session Saving**: Automatically restores your last playlist and settings.
-- **Format Support**: Plays any video format supported by Windows (mp4, mkv, avi, etc.).
+- **Format Support**: Plays MP4, MKV, WebM, AVI, MOV, WMV, MPEG, and more - any format supported by Windows Media Foundation.
+- **URL Import**: Import videos directly from supported websites or use direct video URLs.
 - **Stealth Mode**: Designed to run as an unobtrusive overlay.
 
 ## Use Cases
@@ -46,6 +48,17 @@
 TrainMeX is a **portable application**.
 - **Prerequisites**: Windows 10/11 (x64).
 - **Setup**: None. Just unzip and run.
+
+## Supported Websites
+
+TrainMeX can automatically extract and import videos from the following websites:
+
+- **Hypnotube** (hypnotube.com)
+- **Iwara** (iwara.tv)
+- **PMVHaven** (pmvhaven.com)
+- **RULE34Video** (rule34video.com)
+
+You can also use **direct video URLs** from any website (URLs ending in `.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.m4v`, `.webm`).
 
 ## Usage Guide
 

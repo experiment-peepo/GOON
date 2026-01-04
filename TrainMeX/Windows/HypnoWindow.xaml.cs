@@ -62,6 +62,10 @@ namespace TrainMeX.Windows {
                 // Only report position if media is loaded and playing
                 if (FirstVideo.Source != null && FirstVideo.NaturalDuration.HasTimeSpan) {
                     _viewModel.LastPositionRecord = (FirstVideo.Position, Stopwatch.GetTimestamp());
+                    
+                    // Update playback position tracker
+                    string path = FirstVideo.Source.IsAbsoluteUri ? FirstVideo.Source.LocalPath : FirstVideo.Source.OriginalString;
+                    PlaybackPositionTracker.Instance.UpdatePosition(path, FirstVideo.Position);
                 }
             } catch {
                 // Ignore errors during position extraction
@@ -192,14 +196,20 @@ namespace TrainMeX.Windows {
         }
 
         protected override void OnClosed(EventArgs e) {
-            Dispose();
-            base.OnClosed(e);
+
+             Dispose();
+             base.OnClosed(e);
         }
 
         private void FirstVideo_MediaEnded(object sender, RoutedEventArgs e) {
             if (_disposed || _viewModel == null) return;
             
             try {
+                if (FirstVideo != null && FirstVideo.Source != null) {
+                    string path = FirstVideo.Source.IsAbsoluteUri ? FirstVideo.Source.LocalPath : FirstVideo.Source.OriginalString;
+                    PlaybackPositionTracker.Instance.ClearPosition(path);
+                }
+                
                 _viewModel.OnMediaEnded();
             } catch (Exception ex) {
                 Logger.Error("Error in FirstVideo_MediaEnded", ex);
@@ -237,6 +247,22 @@ namespace TrainMeX.Windows {
                     // Notify view model that media opened successfully
                     // This will trigger RequestPlay event which will call Play()
                     _viewModel.OnMediaOpened();
+                    
+                    // Check for saved position
+                    if (FirstVideo.Source != null) {
+                        try {
+                            // Using LocalPath if absolute URI, or OriginalString
+                            string path = FirstVideo.Source.IsAbsoluteUri ? FirstVideo.Source.LocalPath : FirstVideo.Source.OriginalString;
+                            var savedPos = PlaybackPositionTracker.Instance.GetPosition(path);
+                            if (savedPos.HasValue) {
+                                Logger.Info($"Resuming video from saved position: {savedPos.Value}");
+                                FirstVideo.Position = savedPos.Value;
+                            }
+                        } catch (Exception ex) {
+                            Logger.Warning($"Failed to restore playback position: {ex.Message}");
+                        }
+                    }
+
                     // Note: Play() is now called via RequestPlay event from OnMediaOpened()
                     // This ensures proper sequencing and state management
                 }
@@ -300,8 +326,11 @@ namespace TrainMeX.Windows {
                     this.Width = b.Width / dpi.DpiScaleX;
                     this.Height = b.Height / dpi.DpiScaleY;
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+
             }
         }
         
+
     }
 }

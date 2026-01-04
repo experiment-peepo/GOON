@@ -69,6 +69,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Header with gradient and rounded corners -->
@@ -94,208 +95,279 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="20">
-            <Label Style="{StaticResource LowerTitle}" HorizontalAlignment="Left" FontSize="18" Margin="0,0,0,15">General Settings</Label>
-            
-            <!-- Default Opacity -->
-            <StackPanel Margin="0,0,0,15">
-                <Grid Margin="0,0,0,5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Grid.Column="0" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold">Default Opacity</Label>
-                    <TextBlock Grid.Column="1" Text="{Binding DefaultOpacity, Converter={StaticResource OpacityToIntConverter}}" 
-                              Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" FontWeight="SemiBold" MinWidth="40" TextAlignment="Right"/>
-                </Grid>
-                <Slider x:Name="DefaultOpacitySlider" 
-                        Value="{Binding DefaultOpacity, Converter={StaticResource OpacityScaleConverter}}"
-                        Minimum="0" Maximum="1.0" 
-                        IsSnapToTickEnabled="True" 
-                        SmallChange="0.01" 
-                        LargeChange="0.1" 
-                        TickFrequency="0.01"
-                        Style="{StaticResource NeonSliderStyle}"
-                        ToolTip="Default opacity for newly added videos (0 = transparent, 100 = fully opaque)"/>
-                <TextBlock Text="Opacity level for videos when first added to playlist" 
-                          Foreground="{StaticResource TextTertiary}" FontSize="9" Margin="0,3,0,0" FontStyle="Italic"/>
-            </StackPanel>
-            
-            <!-- Default Volume -->
-            <StackPanel Margin="0,0,0,15">
-                <Grid Margin="0,0,0,5">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Grid.Column="0" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold">Default Volume</Label>
-                    <TextBlock Grid.Column="1" Text="{Binding DefaultVolume, StringFormat='{}{0:P0}'}" 
-                              Foreground="{StaticResource TextSecondary}" FontSize="12" VerticalAlignment="Center" FontWeight="SemiBold" MinWidth="40" TextAlignment="Right"/>
-                </Grid>
-                <Slider x:Name="DefaultVolumeSlider" 
-                        Value="{Binding DefaultVolume}"
-                        Minimum="0" Maximum="1" 
-                        IsSnapToTickEnabled="True" 
-                        SmallChange="0.01" 
-                        LargeChange="0.1" 
-                        TickFrequency="0.01"
-                        Style="{StaticResource NeonSliderStyle}"
-                        ToolTip="Default volume for newly added videos (0% = mute, 100% = full volume)"/>
-                <TextBlock Text="Volume level for videos when first added to playlist" 
-                          Foreground="{StaticResource TextTertiary}" FontSize="9" Margin="0,3,0,0" FontStyle="Italic"/>
-            </StackPanel>
-            
-            <!-- Default Monitor -->
-            <StackPanel Margin="0,0,0,15">
-                <Label Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,8">Default Monitor</Label>
-                <TextBlock Text="Monitor to use by default when adding new videos" 
-                          Foreground="{StaticResource TextTertiary}" FontSize="9" FontStyle="Italic" Margin="0,0,0,8"/>
-                <ComboBox x:Name="DefaultMonitorComboBox"
-                          ItemsSource="{Binding AvailableMonitors}"
-                          SelectedItem="{Binding SelectedDefaultMonitor}"
-                          Style="{StaticResource PinkComboBoxStyle}"
-                          ToolTip="Select the monitor to use by default for new videos"/>
-                <TextBlock Text="If the selected monitor is unavailable, the primary monitor will be used" 
-                          Foreground="{StaticResource TextTertiary}" FontSize="9" Margin="0,3,0,0" FontStyle="Italic"/>
-            </StackPanel>
-            
-            <!-- Separator -->
-            <Border Style="{StaticResource PinkSeparator}" Margin="0,8,0,20"/>
-            
-            <!-- Auto Load Session -->
-            <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <Label Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,2">Auto Load Session</Label>
-                    <TextBlock Text="Automatically restore your last playlist when starting the application" 
-                              Foreground="{StaticResource TextTertiary}" FontSize="9" FontStyle="Italic"/>
-                </StackPanel>
-                <CheckBox x:Name="AutoLoadSessionCheckBox" Grid.Column="1" 
-                          IsChecked="{Binding AutoLoadSession}"
-                          VerticalAlignment="Center"
-                          Style="{StaticResource SettingsCheckBoxStyle}"
-                          ToolTip="When enabled, your last playlist will be automatically loaded on startup"/>
-            </Grid>
-            
-            <!-- Always on Top (Launcher) -->
-            <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <Label Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,2">Always on Top (Launcher)</Label>
-                    <TextBlock Text="Keep launcher accessible" 
-                              Foreground="{StaticResource TextTertiary}" FontSize="9" FontStyle="Italic"/>
-                </StackPanel>
-                <CheckBox x:Name="LauncherAlwaysOnTopCheckBox" Grid.Column="1" 
-                          IsChecked="{Binding LauncherAlwaysOnTop}"
-                          VerticalAlignment="Center"
-                          Style="{StaticResource SettingsCheckBoxStyle}"
-                          ToolTip="When enabled, the launcher window will stay on top of other windows"/>
-            </Grid>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="10,10,10,0" Padding="0,0,10,0">
+                <StackPanel>
+                    <!-- General Settings -->
+                    <GroupBox Header="General" Margin="0,0,0,10" BorderBrush="#4D2F3F" Foreground="{StaticResource TextPrimary}" FontSize="14" FontWeight="SemiBold">
+                        <Grid Margin="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-            <!-- Opaque Mode -->
-            <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <Label Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,2">Opaque Mode</Label>
-                    <TextBlock Text="Force 100% opacity for all videos" 
-                               Foreground="{StaticResource TextTertiary}" FontSize="9" FontStyle="Italic"/>
-                </StackPanel>
-                <CheckBox x:Name="AlwaysOpaqueCheckBox" Grid.Column="1" 
-                          IsChecked="{Binding AlwaysOpaque}"
-                          VerticalAlignment="Center"
-                          Style="{StaticResource SettingsCheckBoxStyle}"
-                          ToolTip="When enabled, every video will play at 100% opacity, ignoring individual settings"/>
-            </Grid>
-            
-            <!-- Panic Hotkey -->
-            <StackPanel Margin="0,0,0,15">
-                <Label Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,8">Panic Hotkey</Label>
-                <TextBlock Text="Global hotkey to stop all video playback immediately" 
-                          Foreground="{StaticResource TextTertiary}" FontSize="9" FontStyle="Italic" Margin="0,0,0,10"/>
-                
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <Label Foreground="{StaticResource TextSecondary}" FontSize="11" VerticalAlignment="Center" Margin="0,0,10,0">Modifiers:</Label>
-                    <CheckBox Content="Ctrl" IsChecked="{Binding PanicHotkeyCtrl}" 
-                              Foreground="{StaticResource TextPrimary}" FontSize="11" Margin="0,0,15,0"
-                              Style="{StaticResource SettingsCheckBoxStyle}"/>
-                    <CheckBox Content="Shift" IsChecked="{Binding PanicHotkeyShift}" 
-                              Foreground="{StaticResource TextPrimary}" FontSize="11" Margin="0,0,15,0"
-                              Style="{StaticResource SettingsCheckBoxStyle}"/>
-                    <CheckBox Content="Alt" IsChecked="{Binding PanicHotkeyAlt}" 
-                              Foreground="{StaticResource TextPrimary}" FontSize="11"
-                              Style="{StaticResource SettingsCheckBoxStyle}"/>
-                </StackPanel>
-                
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Label Grid.Column="0" Foreground="{StaticResource TextSecondary}" FontSize="11" VerticalAlignment="Center" Margin="0,0,10,0">Key:</Label>
-                    <ComboBox Grid.Column="1" 
-                              SelectedItem="{Binding PanicHotkeyKey}"
-                              Style="{StaticResource PinkComboBoxStyle}"
-                              ToolTip="Select the main key for the panic hotkey combination">
-                        <sys:String>End</sys:String>
-                        <sys:String>Esc</sys:String>
-                        <sys:String>Space</sys:String>
-                        <sys:String>F1</sys:String>
-                        <sys:String>F2</sys:String>
-                        <sys:String>F3</sys:String>
-                        <sys:String>F4</sys:String>
-                        <sys:String>F5</sys:String>
-                        <sys:String>F6</sys:String>
-                        <sys:String>F7</sys:String>
-                        <sys:String>F8</sys:String>
-                        <sys:String>F9</sys:String>
-                        <sys:String>F10</sys:String>
-                        <sys:String>F11</sys:String>
-                        <sys:String>F12</sys:String>
-                        <sys:String>Delete</sys:String>
-                        <sys:String>Insert</sys:String>
-                        <sys:String>Home</sys:String>
-                        <sys:String>PageUp</sys:String>
-                        <sys:String>PageDown</sys:String>
-                    </ComboBox>
-                </Grid>
-                
-                <TextBlock Text="{Binding PanicHotkeyDisplay, StringFormat='Current: {0}'}" 
-                          Foreground="{StaticResource TextTertiary}" FontSize="9" Margin="0,5,0,0" FontStyle="Italic"/>
-            </StackPanel>
+                            <!-- Default Monitor -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10">
+                                <Label Content="Default Monitor" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Monitor to use by default when adding new videos" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <ComboBox Grid.Row="0" Grid.Column="1" Width="180"
+                                      ItemsSource="{Binding AvailableMonitors}"
+                                      SelectedItem="{Binding SelectedDefaultMonitor}"
+                                      Style="{StaticResource PinkComboBoxStyle}"
+                                      VerticalAlignment="Top"/>
 
-            <!-- Separator -->
 
-            
-            <!-- OK/Cancel Buttons -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
-                <Button x:Name="CancelButton" Command="{Binding CancelCommand}" 
-                        Margin="5,0" 
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        FontSize="12"
-                        Padding="20,8"
-                        ToolTip="Discard changes and close settings">
-                    Cancel
-                </Button>
-                <Button x:Name="OkButton" Command="{Binding OkCommand}" 
-                        Margin="5,0" 
-                        FontSize="12"
-                        Padding="20,8"
-                        ToolTip="Save settings and close">
-                    Save
-                </Button>
-            </StackPanel>
-            </StackPanel>
-    </ScrollViewer>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Playback Settings -->
+                    <GroupBox Header="Playback" Margin="0,0,0,10" BorderBrush="#4D2F3F" Foreground="{StaticResource TextPrimary}" FontSize="14" FontWeight="SemiBold">
+                        <Grid Margin="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Default Opacity -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center">
+                                <Label Content="Default Opacity" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Opacity for new videos" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Slider Width="120" Value="{Binding DefaultOpacity, Converter={StaticResource OpacityScaleConverter}}"
+                                        Minimum="0" Maximum="1.0" SmallChange="0.01" LargeChange="0.1" TickFrequency="0.01"
+                                        Style="{StaticResource NeonSliderStyle}" IsSnapToTickEnabled="True"/>
+                                <TextBlock Text="{Binding DefaultOpacity, Converter={StaticResource OpacityToIntConverter}}" 
+                                           Foreground="{StaticResource TextSecondary}" FontSize="12" Width="30" TextAlignment="Right" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                            </StackPanel>
+
+                            <!-- Default Volume -->
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center">
+                                <Label Content="Default Volume" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Volume for new videos" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Slider Width="120" Value="{Binding DefaultVolume}"
+                                        Minimum="0" Maximum="1" SmallChange="0.01" LargeChange="0.1" TickFrequency="0.01"
+                                        Style="{StaticResource NeonSliderStyle}" IsSnapToTickEnabled="True"/>
+                                <TextBlock Text="{Binding DefaultVolume, StringFormat='{}{0:P0}'}" 
+                                           Foreground="{StaticResource TextSecondary}" FontSize="12" Width="30" TextAlignment="Right" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                            </StackPanel>
+
+                            <!-- Opaque Mode -->
+                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <Label Content="Opaque Mode" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Force 100% opacity for all videos" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <CheckBox Grid.Row="2" Grid.Column="1" 
+                                      IsChecked="{Binding AlwaysOpaque}"
+                                      Style="{StaticResource SettingsCheckBoxStyle}"
+                                      VerticalAlignment="Center"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Application Settings -->
+                    <GroupBox Header="Application" Margin="0,0,0,10" BorderBrush="#4D2F3F" Foreground="{StaticResource TextPrimary}" FontSize="14" FontWeight="SemiBold">
+                        <Grid Margin="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Always on Top -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <Label Content="Always on Top (Launcher)" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Keep launcher accessible" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <CheckBox Grid.Row="0" Grid.Column="1" 
+                                      IsChecked="{Binding LauncherAlwaysOnTop}"
+                                      Style="{StaticResource SettingsCheckBoxStyle}"
+                                      VerticalAlignment="Center"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Hotkeys -->
+                    <GroupBox Header="Hotkeys" Margin="0,0,0,10" BorderBrush="#4D2F3F" Foreground="{StaticResource TextPrimary}" FontSize="14" FontWeight="SemiBold">
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Margin="0,0,0,5">
+                                <Label Content="Panic Hotkey" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Global hotkey to stop all video playback immediately" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                                    <CheckBox Content="Ctrl" IsChecked="{Binding PanicHotkeyCtrl}" Style="{StaticResource SettingsCheckBoxStyle}" FontSize="12" Margin="0,0,10,0" Foreground="{StaticResource TextPrimary}"/>
+                                    <CheckBox Content="Shift" IsChecked="{Binding PanicHotkeyShift}" Style="{StaticResource SettingsCheckBoxStyle}" FontSize="12" Margin="0,0,10,0" Foreground="{StaticResource TextPrimary}"/>
+                                    <CheckBox Content="Alt" IsChecked="{Binding PanicHotkeyAlt}" Style="{StaticResource SettingsCheckBoxStyle}" FontSize="12" Margin="0,0,10,0" Foreground="{StaticResource TextPrimary}"/>
+                                </StackPanel>
+                                <TextBlock Text="+" Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="5,0"/>
+                                <ComboBox Grid.Column="2" Width="100" ItemsSource="{StaticResource KeyList}" SelectedItem="{Binding PanicHotkeyKey}" Style="{StaticResource PinkComboBoxStyle}"/>
+                            </Grid>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- History Settings -->
+                    <GroupBox Header="History" Margin="0,0,0,10" BorderBrush="#4D2F3F" Foreground="{StaticResource TextPrimary}" FontSize="14" FontWeight="SemiBold">
+                        <Grid Margin="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+
+
+                            <!-- Remember Last Playlist -->
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,10,10" VerticalAlignment="Center">
+                                <Label Content="Remember last playlist" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Restore your playlist when reopening the app" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <CheckBox Grid.Row="1" Grid.Column="1" 
+                                      IsChecked="{Binding RememberLastPlaylist}"
+                                      Style="{StaticResource SettingsCheckBoxStyle}"
+                                      VerticalAlignment="Center"/>
+
+                            <!-- Remember File Position -->
+                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <Label Content="Remember file position" Foreground="{StaticResource TextPrimary}" FontSize="12" Padding="0"/>
+                                <TextBlock Text="Resume videos from where you left off" Foreground="{StaticResource TextTertiary}" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <CheckBox Grid.Row="2" Grid.Column="1" 
+                                      IsChecked="{Binding RememberFilePosition}"
+                                      Style="{StaticResource SettingsCheckBoxStyle}"
+                                      VerticalAlignment="Center"/>
+                        </Grid>
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Fixed Footer with Buttons -->
+            <Border Grid.Row="2" CornerRadius="0,0,8,8" BorderThickness="0,1,0,0" BorderBrush="#4D2F3F">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#3D1F2E" Offset="0"/>
+                        <GradientStop Color="#2D0F1A" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="15,12,15,12">
+                    <Button Command="{Binding CancelCommand}" 
+                            Style="{StaticResource SecondaryButtonStyle}" 
+                            Width="120" 
+                            Height="36"
+                            Margin="0,0,15,0" 
+                            Content="Cancel">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border"
+                                        Background="{TemplateBinding Background}" 
+                                        BorderBrush="{TemplateBinding BorderBrush}" 
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="4"
+                                        Padding="{TemplateBinding Padding}">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="2" Opacity="0.3"/>
+                                    </Border.Effect>
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#4D2F3F"/>
+                                        <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource AccentSecondary}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource AccentSecondary}"/>
+                                        <Setter TargetName="border" Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect Color="#FF69B4" BlurRadius="12" ShadowDepth="0" Opacity="0.6"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value>
+                                                <ScaleTransform ScaleX="1.02" ScaleY="1.02"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#5D3F4F"/>
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value>
+                                                <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    <Button Command="{Binding OkCommand}" 
+                            Width="120" 
+                            Height="36"
+                            Content="Save">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border"
+                                        Background="{StaticResource AccentPrimary}" 
+                                        CornerRadius="4"
+                                        Padding="16,8">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="2" Opacity="0.3"/>
+                                    </Border.Effect>
+                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                    VerticalAlignment="Center"
+                                                    TextElement.Foreground="{StaticResource TextPrimary}"
+                                                    TextElement.FontWeight="SemiBold"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="{StaticResource AccentSecondary}"/>
+                                        <Setter TargetName="border" Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect Color="#FF69B4" BlurRadius="16" ShadowDepth="0" Opacity="0.8"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value>
+                                                <ScaleTransform ScaleX="1.02" ScaleY="1.02"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#FF8CC5"/>
+                                        <Setter Property="RenderTransform">
+                                            <Setter.Value>
+                                                <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+
     </Grid>
     </Border>
 </Window>

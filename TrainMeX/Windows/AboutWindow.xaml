@@ -1,0 +1,93 @@
+<Window x:Class="TrainMeX.Windows.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TrainMeX.Windows"
+        mc:Ignorable="d"
+        Title="About" SizeToContent="Height" Width="400"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        WindowStartupLocation="CenterOwner"
+        AllowsTransparency="True" Background="Transparent"
+        ShowInTaskbar="False">
+    
+    <Border x:Name="MainBorder" 
+            Background="{StaticResource BackgroundPrimary}" 
+            BorderBrush="{StaticResource AccentPrimary}" 
+            BorderThickness="1"
+            CornerRadius="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border x:Name="HeaderBorder" CornerRadius="8,8,0,0" 
+                    Height="40"
+                    Grid.Row="0">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#4D2F3F" Offset="0"/>
+                        <GradientStop Color="#3D1F2E" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid FlowDirection="RightToLeft" MouseLeftButtonDown="Grid_MouseLeftButtonDown">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40"/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Button Style="{StaticResource ControlButton}" Click="CloseButton_Click" ToolTip="Close">x</Button>
+                    <Label Grid.Column="1" Style="{StaticResource LowerTitle}" 
+                           HorizontalAlignment="Left" 
+                           Margin="10,0,0,0" 
+                           VerticalAlignment="Center"
+                           FontSize="14">About</Label>
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <StackPanel Grid.Row="1" Margin="20">
+                <StackPanel Margin="0,0,0,20">
+                    <Label Style="{StaticResource MainTitle}" HorizontalAlignment="Center" FontSize="24" Margin="0,0,0,5">TrainMeX</Label>
+                    <Label Style="{StaticResource LowerTitle}" HorizontalAlignment="Center" FontStyle="Italic" FontSize="14">Overlay video player for sissies</Label>
+                    <TextBlock x:Name="VersionText" 
+                               HorizontalAlignment="Center" 
+                               Foreground="{StaticResource TextTertiary}" 
+                               Margin="0,5,0,0" 
+                               FontSize="12"/>
+                </StackPanel>
+
+                <TextBlock Text="TrainMeX is a specialized video player designed for multi-monitor playback with overlay capabilities directly on your desktop." 
+                           Foreground="{StaticResource TextSecondary}" 
+                           TextWrapping="Wrap" 
+                           TextAlignment="Center"
+                           Margin="0,0,0,20"/>
+
+                <!-- Ko-fi Button -->
+                <Button Command="{Binding OpenKoFiCommand}" 
+                        Background="Transparent" BorderBrush="Transparent"
+                        HorizontalAlignment="Center"
+                        Cursor="Hand" ToolTip="Support on Ko-fi">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                             <Grid>
+                                <ContentPresenter/>
+                                <Border Background="Transparent"/> 
+                            </Grid>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Image Source="pack://application:,,,/Images/kofi.png" Height="40" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Button>
+                
+                <TextBlock Text="Support the developer" 
+                           Foreground="{StaticResource TextTertiary}" 
+                           FontSize="11" 
+                           HorizontalAlignment="Center" 
+                           Margin="0,5,0,0"
+                           FontStyle="Italic"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

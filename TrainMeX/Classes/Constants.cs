@@ -8,7 +8,11 @@ namespace TrainMeX.Classes {
         /// <summary>
         /// Supported video file extensions
         /// </summary>
-        public static readonly string[] VideoExtensions = { ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".m4v", ".webm" };
+        public static readonly string[] VideoExtensions = { 
+            ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".m4v", ".webm",  // Modern formats
+            ".mpg", ".mpeg",  // MPEG-1/2 - DVD/broadcast content
+            ".ts", ".m2ts"    // MPEG transport streams - Blu-ray content
+        };
 
         /// <summary>
         /// Supported video URL domains

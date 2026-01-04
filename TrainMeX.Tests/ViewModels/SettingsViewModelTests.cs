@@ -73,7 +73,7 @@ namespace TrainMeX.Tests {
         }
 
         [Fact]
-        public void AutoLoadSession_PropertyChange_RaisesNotification() {
+        public void RememberLastPlaylist_PropertyChange_RaisesNotification() {
             // Arrange
             SettingsViewModel viewModel;
             try {
@@ -84,13 +84,13 @@ namespace TrainMeX.Tests {
 
             bool propertyChangedRaised = false;
             viewModel.PropertyChanged += (sender, e) => {
-                if (e.PropertyName == nameof(SettingsViewModel.AutoLoadSession)) {
+                if (e.PropertyName == nameof(SettingsViewModel.RememberLastPlaylist)) {
                     propertyChangedRaised = true;
                 }
             };
 
             // Act
-            viewModel.AutoLoadSession = true;
+            viewModel.RememberLastPlaylist = !viewModel.RememberLastPlaylist;
 
             // Assert
             Assert.True(propertyChangedRaised);

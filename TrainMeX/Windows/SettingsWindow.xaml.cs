@@ -2,6 +2,8 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 using TrainMeX.ViewModels;
+using System.IO;
+using System.Diagnostics;
 
 namespace TrainMeX.Windows {
     public partial class SettingsWindow : Window {
@@ -40,5 +42,7 @@ namespace TrainMeX.Windows {
         private void CloseButton_Click(object sender, RoutedEventArgs e) {
             this.Close();
         }
+
+
     }
 }

@@ -269,6 +269,13 @@ namespace TrainMeX.Windows {
             settingsWindow.ShowDialog();
         }
 
+        private void AboutButton_Click(object sender, RoutedEventArgs e) {
+            var aboutWindow = new AboutWindow {
+                Owner = this
+            };
+            aboutWindow.ShowDialog();
+        }
+
         private void MaximizeButton_Click(object sender, RoutedEventArgs e) {
             if (WindowState == WindowState.Maximized) {
                 WindowState = WindowState.Normal;

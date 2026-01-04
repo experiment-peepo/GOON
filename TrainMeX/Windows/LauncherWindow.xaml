@@ -117,12 +117,14 @@
                     <ColumnDefinition Width="50"/>
                     <ColumnDefinition Width="50"/>
                     <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="50"/>
                     <ColumnDefinition/>
                 </Grid.ColumnDefinitions>
                 <Button Style="{StaticResource ControlButton}" Command="{Binding ExitCommand}" ToolTip="Exit application">x</Button>
                 <Button x:Name="MaximizeButton" Style="{StaticResource ControlButton}" Click="MaximizeButton_Click" Grid.Column="1" ToolTip="Maximize/Restore window">□</Button>
                 <Button Style="{StaticResource ControlButton}" Command="{Binding MinimizeCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}" Grid.Column="2" ToolTip="Minimize window">-</Button>
                 <Button Style="{StaticResource ControlButton}" Click="SettingsButton_Click" Grid.Column="3" FontSize="14" ToolTip="Open settings">⚙</Button>
+                <Button Style="{StaticResource ControlButton}" Click="AboutButton_Click" Grid.Column="4" FontSize="14" ToolTip="About TrainMeX" FontWeight="Bold">i</Button>
             </Grid>
         </Border>
         

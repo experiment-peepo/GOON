@@ -38,8 +38,15 @@
             MediaOpened="FirstVideo_MediaOpened"
             Volume="{Binding Volume}"
             ScrubbingEnabled="False"
-            RenderOptions.BitmapScalingMode="HighQuality"
-            />
+            RenderOptions.BitmapScalingMode="HighQuality">
+            <MediaElement.Effect>
+                <!-- Placeholder for TabooCorruptionEffect, assigned in code-behind -->
+                <BlurEffect Radius="0"/> 
+            </MediaElement.Effect>
+        </MediaElement>
+
+        <!-- Tint Overlay (Immersion) -->
+        <Border x:Name="TintOverlay" Background="Transparent" IsHitTestVisible="False"/>
 
         <!-- Controls Removed as per user request -->
     </Grid>

@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\Windows\HypnoWindow.xaml.cs(88,32): warning CS0168: The variable 'ex' is declared but never used [C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\TrainMeX_bhnaxdln_wpftmp.csproj]
+C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\ViewModels\HypnoViewModel.cs(383,49): error CS0103: The name 'Stopwatch' does not exist in the current context [C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\TrainMeX_bhnaxdln_wpftmp.csproj]
+C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\ViewModels\HypnoViewModel.cs(393,49): error CS0103: The name 'Stopwatch' does not exist in the current context [C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\TrainMeX_bhnaxdln_wpftmp.csproj]
+
+Build FAILED.
+
+C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\Windows\HypnoWindow.xaml.cs(88,32): warning CS0168: The variable 'ex' is declared but never used [C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\TrainMeX_bhnaxdln_wpftmp.csproj]
+C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\ViewModels\HypnoViewModel.cs(383,49): error CS0103: The name 'Stopwatch' does not exist in the current context [C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\TrainMeX_bhnaxdln_wpftmp.csproj]
+C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\ViewModels\HypnoViewModel.cs(393,49): error CS0103: The name 'Stopwatch' does not exist in the current context [C:\Users\bulle\.gemini\antigravity\playground\astral-mariner\TrainMeX\TrainMeX_bhnaxdln_wpftmp.csproj]
+    1 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:01.07

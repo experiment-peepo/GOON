@@ -1,0 +1,26 @@
+00:41:15.067: Restoring Saved Pos (Async): 16.577s
+00:41:20.866: OnClosed. Pos: 5.476s
+00:41:20.867: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:05.4771667
+00:41:21.839: Restoring Saved Pos (Async): 5.477s
+00:41:23.422: OnClosed. Pos: 1.272s
+00:41:23.422: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:01.2721875
+00:44:48.605: Restoring Saved Pos (Async): 5.477s
+00:44:48.953: Restoring Saved Pos (Async): 5.477s
+00:44:49.540: SYNC REQUESTED: Current=0.074s, Target=0.389s, Diff=315ms
+00:44:58.310: SYNC REQUESTED: Current=8.252s, Target=8.558s, Diff=307ms
+00:45:01.914: OnClosed. Pos: 12.163s
+00:45:01.914: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:12.1641667
+00:45:01.934: OnClosed. Pos: 11.998s
+00:45:01.947: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:12.0809583
+00:54:10.186: Restoring Saved Pos (Async): 12.081s
+00:54:10.547: Restoring Saved Pos (Async): 12.161s
+00:54:14.928: OnClosed. Pos: 3.270s
+00:54:14.929: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:03.2700000
+00:54:14.949: OnClosed. Pos: 3.163s
+00:54:14.957: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:03.1631458
+00:54:17.975: Restoring Saved Pos (Async): 12.161s
+00:54:22.200: OnClosed. Pos: 3.329s
+00:54:22.203: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:03.3324792
+00:54:23.158: Restoring Saved Pos (Async): 12.161s
+00:54:24.569: OnClosed. Pos: 1.068s
+00:54:24.569: Saving final: D:\Downloads\JDownloads\PMVs\Mackg4\PROJECT 24 - 4K (SOURCE).mov -> 00:00:01.0685417

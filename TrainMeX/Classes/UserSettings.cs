@@ -6,7 +6,7 @@ namespace TrainMeX.Classes {
     public class UserSettings {
         public double Opacity { get; set; } = 0.2;
         public double Volume { get; set; } = 0.5;
-        public bool AutoLoadSession { get; set; } = false;
+
         public bool LauncherAlwaysOnTop { get; set; } = false;
         public double DefaultOpacity { get; set; } = 0.9;
         public double DefaultVolume { get; set; } = 0.5;
@@ -17,6 +17,14 @@ namespace TrainMeX.Classes {
         public uint PanicHotkeyModifiers { get; set; } = 0x0002 | 0x0004; // Ctrl+Shift (default)
         public string PanicHotkeyKey { get; set; } = "End"; // Default key
         public bool AlwaysOpaque { get; set; } = false;
+        
+        // History Settings
+
+        public bool RememberLastPlaylist { get; set; } = true;
+        public bool RememberFilePosition { get; set; } = false;
+
+        // Taboo Settings
+
 
 
 

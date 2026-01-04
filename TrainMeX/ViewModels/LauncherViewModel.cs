@@ -140,7 +140,7 @@ namespace TrainMeX.ViewModels {
             
             // Load session if auto-load is enabled (async to avoid blocking UI)
             try {
-                if (App.Settings != null && App.Settings.AutoLoadSession) {
+                if (App.Settings != null && App.Settings.RememberLastPlaylist) {
                     _ = LoadSessionAsync(_cancellationTokenSource.Token);
                 }
             } catch (Exception ex) {
@@ -552,6 +552,7 @@ namespace TrainMeX.ViewModels {
 
                 if (item.ValidationStatus == FileValidationStatus.Valid) {
                     AddedFiles.Add(item);
+
                     SetStatusMessage($"Added URL: {item.FileName}", StatusMessageType.Success);
                     UpdateButtons();
                     SaveSession();
@@ -650,6 +651,7 @@ namespace TrainMeX.ViewModels {
                     item.Volume = settings.DefaultVolume;
                     AddedFiles.Add(item);
                     existingPaths.Add(normalizedUrl);
+
                     addedCount++;
                 }
 
@@ -727,6 +729,7 @@ namespace TrainMeX.ViewModels {
                         item.Validate();
                         AddedFiles.Add(item);
                         existingPaths.Add(sanitizedPath);
+
                         addedCount++;
                     } else {
                         Logger.Warning($"Failed to sanitize path: {filePath}");
@@ -959,6 +962,11 @@ namespace TrainMeX.ViewModels {
         }
         private void SaveSession(bool runInBackground = true) {
             try {
+                // Only save session if user wants to remember playlist
+                if (App.Settings == null || !App.Settings.RememberLastPlaylist) {
+                    return;
+                }
+                
                 // Take a snapshot of the playlist items to avoid cross-thread issues
                 var playlistItems = AddedFiles.Select(item => new PlaylistItem {
                     FilePath = item.FilePath,

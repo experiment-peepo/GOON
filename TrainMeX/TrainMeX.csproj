@@ -7,7 +7,7 @@
     <RootNamespace>TrainMeX</RootNamespace>
     <AssemblyName>TrainMeX</AssemblyName>
     <ApplicationIcon>Images\icon.ico</ApplicationIcon>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Version>1.2.0</Version>
   </PropertyGroup>
 
