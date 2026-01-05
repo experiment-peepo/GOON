@@ -47,8 +47,14 @@ jobs:
 
         echo "version=$version" >> $env:GITHUB_OUTPUT
         echo "numeric_version=$numericVersion" >> $env:GITHUB_OUTPUT
+        
+        # Detect prerelease
+        $isPrerelease = ($version -match "beta|alpha|rc") ? "true" : "false"
+        echo "is_prerelease=$isPrerelease" >> $env:GITHUB_OUTPUT
+
         echo "Computed Version: $version"
         echo "Numeric Version: $numericVersion"
+        echo "Is Prerelease: $isPrerelease"
       shell: pwsh
       
     - name: Build and Publish
@@ -81,9 +87,9 @@ jobs:
       with:
         files: publish/TrainMeX.exe
         tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
+        name: ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta Release ' || 'Release ' }}${{ github.ref_name }}
         body: |
-          ## TrainMeX Release ${{ steps.git_version.outputs.version }}
+          ## TrainMeX ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta ' || '' }}Release ${{ steps.git_version.outputs.version }}
           
           ### Changes
           - See commit history for details
@@ -95,7 +101,7 @@ jobs:
           - Windows x64
           - No .NET runtime required (self-contained)
         draft: false
-        prerelease: false
+        prerelease: ${{ steps.git_version.outputs.is_prerelease == 'true' }}
         fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
