@@ -16,6 +16,10 @@ namespace TrainMeX.Tests {
         public PlaylistImporterTests() {
             _mockFetcher = new Mock<IHtmlFetcher>();
             
+            // Setup default behavior for ResolveRedirectUrlAsync (return URL unchanged)
+            _mockFetcher.Setup(f => f.ResolveRedirectUrlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string url, string referer, CancellationToken ct) => url);
+            
             // We can use a real extractor with the mocked fetcher to test integration, 
             // or we might want to mock the extractor to isolate playlist logic.
             // Since VideoUrlExtractor methods are not virtual, we can't easily mock it with Moq unless we wrap it or extract interface.

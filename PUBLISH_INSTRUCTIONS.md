@@ -33,21 +33,21 @@ publish\TrainMeX.exe
 
 ## What Makes It Portable?
 
-1. **Self-Contained**: Includes the .NET 8.0 runtime, so no .NET installation is required on target machines
-2. **Single File**: All dependencies are bundled into one executable file
-3. **No Installation**: Can be run directly from any folder
-4. **Local Settings**: All settings and session data are stored in JSON files alongside the executable
+1. **Self-Contained**: Includes the .NET 8.0 runtime, so no .NET installation is required on target machines.
+2. **Single File**: All dependencies are bundled into one executable file.
+3. **No Installation**: Can be run directly from any folder.
+4. **User Data**: Settings, sessions, and logs are stored in `%APPDATA%\TrainMeX` (e.g., `C:\Users\<User>\AppData\Roaming\TrainMeX`), ensuring your configuration and debug info are preserved even if you move the executable.
 
 ## File Size
 
-The executable will be approximately 50-100 MB as it includes the entire .NET runtime. This is normal for self-contained applications.
+The executable is approximately 150-160 MB as it includes the entire .NET runtime and native libraries. This is normal for self-contained applications.
 
 ## Distribution
 
 Simply copy the `TrainMeX.exe` file to any location. The application will:
-- Create `settings.json` in the same directory for user preferences
-- Create `session.json` in the same directory for session state
-- Work from any folder without requiring installation or registry entries
+- Automatically manage `settings.json` and `session.json` in the user's roaming AppData folder.
+- Handle migration from legacy local settings if they exist.
+- Work from any folder without requiring registry entries.
 
 ## Notes
 

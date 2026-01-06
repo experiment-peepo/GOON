@@ -41,6 +41,7 @@ This directory contains comprehensive unit and integration tests for the TrainMe
 ```bash
 dotnet test
 ```
+*Note: Tests are configured to target x64. Ensure your environment supports 64-bit execution.*
 
 ### From Visual Studio
 

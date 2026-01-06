@@ -1,7 +1,8 @@
-# TrainMeX
+# TrainMeX `v1.3.1-beta.1`
 
 ![Build Status](https://github.com/experiment-peepo/TrainMe/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/github/license/experiment-peepo/TrainMe)
+![Architecture](https://img.shields.io/badge/Architecture-x64-blue)
 
 **TrainMeX** is a specialized multi-screen video playback tool designed for immersive environments, therapy sessions, and installation art. It allows you to overlay video playback on specific monitors with independent opacity and audio controls, creating a seamless background experience without interfering with your primary workspace.
 
@@ -48,17 +49,21 @@
 TrainMeX is a **portable application**.
 - **Prerequisites**: Windows 10/11 (x64).
 - **Setup**: None. Just unzip and run.
+- **Video Codec Requirements**: For playing **AV1** or **HEVC (H.265)** video files, you must install the official extensions from the Microsoft Store:
+  - [AV1 Video Extension](https://www.microsoft.com/en-us/p/av1-video-extension/9mvzqvxjbq9v) (Free)
+  - [HEVC Video Extensions](https://www.microsoft.com/en-us/p/hevc-video-extensions/9nmzlz57r3t7) (Paid) 
+  - **Note:** Even if you have the **K-Lite Codec Pack** installed, this application (built with WPF) often relies on the native Windows extensions to play these specific formats correctly.
 
 ## Supported Websites
 
-TrainMeX can automatically extract and import videos from the following websites:
+TrainMeX features a hardened extraction engine with support for GZip decompression and specialized player patterns (like **Plyr**). It can automatically import videos from:
 
-- **Hypnotube** (hypnotube.com)
-- **Iwara** (iwara.tv)
+- **Hypnotube** (hypnotube.com) - *Enhanced support for direct video and Plyr sources.*
+- **Iwara** (iwara.tv) - *Support for direct video and JSON-embedded sources.*
 - **PMVHaven** (pmvhaven.com)
 - **RULE34Video** (rule34video.com)
 
-You can also use **direct video URLs** from any website (URLs ending in `.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.m4v`, `.webm`).
+You can also use **direct video URLs** (ending in `.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.m4v`, `.webm`, or `.m3u8` for HLS streams).
 
 ## Usage Guide
 

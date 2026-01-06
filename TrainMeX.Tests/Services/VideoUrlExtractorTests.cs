@@ -60,6 +60,36 @@ namespace TrainMeX.Tests {
         }
 
         [Fact]
+        public async Task ExtractVideoUrl_Rule34Video_ExtractsRndUsingToken() {
+             // Arrange
+            string pageUrl = "https://rule34video.com/video/12345/example/";
+             // Simulate the relevant part of the HTML structure
+             string htmlContent = @"
+                <script type='text/javascript'>
+                    var flashvars = {
+                        video_id: '12345',
+                        video_alt_url: 'function/0/https://cdn.rule34video.com/videos/12345.mp4',
+                        rnd: '1767689683'
+                    };
+                </script>
+            ";
+
+            _mockFetcher.Setup(f => f.FetchHtmlAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(htmlContent);
+            
+            // Setup ResolveRedirectUrlAsync to return the input URL unchanged (no redirect)
+            _mockFetcher.Setup(f => f.ResolveRedirectUrlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string url, string referer, CancellationToken ct) => url);
+
+            // Act
+            var result = await _extractor.ExtractVideoUrlAsync(pageUrl);
+
+            // Assert
+            Assert.Contains("rnd=1767689683", result);
+            Assert.StartsWith("https://cdn.rule34video.com/videos/12345.mp4", result);
+        }
+
+        [Fact]
         public async Task ExtractVideoUrl_WithRelativeUrl_ResolvesToAbsolute() {
             // Arrange
             string pageUrl = "https://example.com/video/page";
