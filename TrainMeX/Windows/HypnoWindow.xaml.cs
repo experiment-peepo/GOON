@@ -280,6 +280,16 @@ namespace TrainMeX.Windows {
             if (_disposed || _viewModel == null) return;
             
             try {
+                if (FirstVideo != null && FirstVideo.Source != null) {
+                    var uri = FirstVideo.Source;
+                    if (uri.IsAbsoluteUri) {
+                        if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) {
+                            App.Telemetry?.LogUrlFailure(uri.Host);
+                        } else {
+                            App.Telemetry?.LogFormatFailure(System.IO.Path.GetExtension(uri.LocalPath));
+                        }
+                    }
+                }
                 _viewModel.OnMediaFailed(e.ErrorException);
             } catch (Exception ex) {
                 Logger.Error("Error in FirstVideo_MediaFailed", ex);

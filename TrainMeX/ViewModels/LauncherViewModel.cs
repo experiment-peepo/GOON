@@ -138,9 +138,6 @@ namespace TrainMeX.ViewModels {
             // Subscribe to ActivePlayers changes to update HasActivePlayers property
             ActivePlayers.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasActivePlayers));
             
-            // Cleanup old playback positions on startup (older than 30 days)
-            PlaybackPositionTracker.Instance.CleanupOldPositions();
-            
             // Load session if auto-load is enabled (async to avoid blocking UI)
             try {
                 if (App.Settings != null && App.Settings.RememberLastPlaylist) {
@@ -428,14 +425,9 @@ namespace TrainMeX.ViewModels {
         }
 
         private void Dehypnotize(object obj) {
-            Logger.Info("[Launcher] Stopping all playback (Dehypnotize)...");
             IsDehypnotizeEnabled = false;
 
             App.VideoService.StopAll();
-            
-            // Ensure positions are saved to disk after windows are closed
-            PlaybackPositionTracker.Instance.SaveSync();
-            Logger.Info("[Launcher] Playback stopped and positions saved.");
         }
 
 
@@ -797,16 +789,7 @@ namespace TrainMeX.ViewModels {
 
         private void Exit(object obj) {
             if (MessageBox.Show("Exit program? All hypnosis will be terminated :(", "Exit program", MessageBoxButton.YesNo) == MessageBoxResult.Yes) {
-                Logger.Info("[Launcher] Application exiting...");
-                
-                // Stop all players first to capture final positions
-                App.VideoService.StopAll();
-                
-                // Save session and playback positions
                 SaveSession(runInBackground: false);
-                PlaybackPositionTracker.Instance.SaveSync();
-                
-                Logger.Info("[Launcher] Session and positions saved. Shutting down.");
                 Application.Current.Shutdown();
             }
         }
@@ -1037,7 +1020,7 @@ namespace TrainMeX.ViewModels {
                 
                 if (playlist != null) {
                     // Dispatch UI updates back to UI thread
-                    await Application.Current.Dispatcher.InvokeAsync(() => {
+                    await Application.Current.Dispatcher.InvokeAsync(async () => {
                         cancellationToken.ThrowIfCancellationRequested();
                         
                         AddedFiles.Clear();
@@ -1056,6 +1039,34 @@ namespace TrainMeX.ViewModels {
                                 videoItem.Title = item.Title;
                             }
                             
+                            // CRITICAL: Re-extract URLs from time-sensitive sites (Rule34Video, Hypnotube)
+                            // These sites use time-limited URLs that expire, so we need fresh extraction
+                            if (videoItem.IsUrl && NeedsReExtraction(item.FilePath)) {
+                                Logger.Info($"LoadSession: Detected time-sensitive URL for '{videoItem.FileName}', attempting re-extraction...");
+                                try {
+                                    // Try to extract fresh URL from the original page URL if we can determine it
+                                    var pageUrl = GetOriginalPageUrl(item.FilePath);
+                                    if (!string.IsNullOrEmpty(pageUrl)) {
+                                        Logger.Info($"LoadSession: Re-extracting from page URL: {pageUrl}");
+                                        var freshUrl = await _urlExtractor.ExtractVideoUrlAsync(pageUrl, cancellationToken);
+                                        if (!string.IsNullOrEmpty(freshUrl)) {
+                                            Logger.Info($"LoadSession: Successfully re-extracted URL: {freshUrl}");
+                                            // Create a new VideoItem with the fresh URL
+                                            videoItem = new VideoItem(freshUrl, screen);
+                                            videoItem.Opacity = item.Opacity;
+                                            videoItem.Volume = item.Volume;
+                                            videoItem.Title = item.Title;
+                                        } else {
+                                            Logger.Warning($"LoadSession: Re-extraction failed, using original URL (may be expired)");
+                                        }
+                                    } else {
+                                        Logger.Warning($"LoadSession: Could not determine original page URL, using saved URL (may be expired)");
+                                    }
+                                } catch (Exception ex) {
+                                    Logger.Warning($"LoadSession: Re-extraction error: {ex.Message}, using original URL");
+                                }
+                            }
+                            
                             // Validate the file when loading from session
                             videoItem.Validate();
                             AddedFiles.Add(videoItem);
@@ -1068,6 +1079,55 @@ namespace TrainMeX.ViewModels {
             } catch (Exception ex) {
                 Logger.Warning("Failed to load session", ex);
             }
+        }
+
+        /// <summary>
+        /// Determines if a URL is from a time-sensitive site that needs re-extraction
+        /// </summary>
+        private bool NeedsReExtraction(string url) {
+            if (string.IsNullOrEmpty(url)) return false;
+            
+            // Rule34Video URLs expire quickly
+            if (url.Contains("rule34video.com/get_file/") || url.Contains("rule34video.com/video/")) {
+                return true;
+            }
+            
+            // Hypnotube URLs may also be time-limited
+            if (url.Contains("hypnotube.com") && !url.EndsWith(".m3u8")) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Attempts to extract the original page URL from a direct video URL
+        /// </summary>
+        private string GetOriginalPageUrl(string videoUrl) {
+            if (string.IsNullOrEmpty(videoUrl)) return null;
+            
+            try {
+                // For Rule34Video, extract video ID from the URL
+                // Example: https://rule34video.com/get_file/.../4187000/4187379/4187379_360.mp4
+                // Should return: https://rule34video.com/video/4187379/
+                if (videoUrl.Contains("rule34video.com")) {
+                    var match = System.Text.RegularExpressions.Regex.Match(videoUrl, @"/(\d{7})/(\d+)/");
+                    if (match.Success && match.Groups.Count > 2) {
+                        var videoId = match.Groups[2].Value;
+                        // We don't have the slug, but the video ID alone should work for re-extraction
+                        return $"https://rule34video.com/video/{videoId}/";
+                    }
+                }
+                
+                // For Hypnotube, similar pattern
+                // Example: https://cdn.hypnotube.com/videos/12345.mp4
+                // This is harder without the original page URL, so we'll skip for now
+                
+            } catch (Exception ex) {
+                Logger.Warning($"GetOriginalPageUrl: Error parsing URL: {ex.Message}");
+            }
+            
+            return null;
         }
 
         private bool _disposed = false;

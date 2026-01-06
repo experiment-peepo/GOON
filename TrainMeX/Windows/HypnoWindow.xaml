@@ -36,7 +36,7 @@
             MediaEnded="FirstVideo_MediaEnded"
             MediaFailed="FirstVideo_MediaFailed"
             MediaOpened="FirstVideo_MediaOpened"
-            Volume="{Binding Volume}"
+            Volume="{Binding ActualVolume}"
             ScrubbingEnabled="True"
             RenderOptions.BitmapScalingMode="HighQuality">
             <MediaElement.Effect>

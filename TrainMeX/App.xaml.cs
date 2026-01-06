@@ -20,6 +20,8 @@ namespace TrainMeX {
         public static Classes.VideoPlayerService VideoService => Classes.ServiceContainer.TryGet<Classes.VideoPlayerService>(out var service) ? service : null;
         public static Classes.UserSettings Settings => Classes.ServiceContainer.TryGet<Classes.UserSettings>(out var settings) ? settings : null;
         public static Classes.HotkeyService Hotkeys => Classes.ServiceContainer.TryGet<Classes.HotkeyService>(out var hotkeys) ? hotkeys : null;
+        public static Classes.UrlCacheService UrlCache => Classes.ServiceContainer.TryGet<Classes.UrlCacheService>(out var urlCache) ? urlCache : null;
+        public static Classes.TelemetryService Telemetry => Classes.ServiceContainer.TryGet<Classes.TelemetryService>(out var telemetry) ? telemetry : null;
 
         protected override void OnStartup(StartupEventArgs e) {
             base.OnStartup(e);
@@ -82,6 +84,8 @@ namespace TrainMeX {
             Classes.ServiceContainer.Register(Classes.UserSettings.Load());
             Classes.ServiceContainer.Register(new Classes.VideoPlayerService());
             Classes.ServiceContainer.Register(new Classes.HotkeyService());
+            Classes.ServiceContainer.Register(new Classes.UrlCacheService());
+            Classes.ServiceContainer.Register(new Classes.TelemetryService());
         }
     }
 }

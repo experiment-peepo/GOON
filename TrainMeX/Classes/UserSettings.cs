@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 
 namespace TrainMeX.Classes {
+
     public class UserSettings {
         public double Opacity { get; set; } = 0.2;
         public double Volume { get; set; } = 0.5;
@@ -22,10 +23,8 @@ namespace TrainMeX.Classes {
 
         public bool RememberLastPlaylist { get; set; } = true;
         public bool RememberFilePosition { get; set; } = true;
-
-        // Taboo Settings
-
-
+        public System.Collections.Generic.List<string> PlayedHistory { get; set; } = new System.Collections.Generic.List<string>();
+        public bool VideoShuffle { get; set; } = true;
 
 
         private static string _settingsPath;
@@ -115,13 +114,93 @@ namespace TrainMeX.Classes {
             }
         }
 
+        private readonly System.Threading.SemaphoreSlim _saveLock = new System.Threading.SemaphoreSlim(1, 1);
+
         public void Save() {
+            // Updated to be a synchronous wrapper around Async save for compatibility
+            // This ensures we always strictly serialize writes
             try {
-                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(SettingsFilePath, json);
+                _saveLock.Wait();
+                try {
+                    string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(SettingsFilePath, json);
+                } finally {
+                    _saveLock.Release();
+                }
             } catch (Exception ex) {
-                Logger.Error("Failed to save settings", ex);
+                Logger.Error("Failed to save settings (Sync)", ex);
             }
         }
+
+        public async System.Threading.Tasks.Task SaveAsync() {
+            try {
+                await _saveLock.WaitAsync();
+                try {
+                    string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+                    await File.WriteAllTextAsync(SettingsFilePath, json);
+                } finally {
+                    _saveLock.Release();
+                }
+            } catch (Exception ex) {
+                Logger.Error("Failed to save settings (Async)", ex);
+            }
+        }
+
+        // --- Session Persistence ---
+
+        // --- Session Persistence ---
+        
+        // Heavy data (Playlist) - Saved to session.json only on change
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Playlist CurrentSessionPlaylist { get; set; } = new Playlist();
+
+        // Light data (Position/Index) - Saved to settings.json continuously
+        public PlaybackState LastPlaybackState { get; set; } = new PlaybackState();
+
+        public static string SessionFilePath => Path.Combine(Path.GetDirectoryName(SettingsFilePath), "session.json");
+
+        public async System.Threading.Tasks.Task SaveSessionAsync() {
+              try {
+                if (CurrentSessionPlaylist == null) return;
+                // Reuse the same lock or a new one? Session is a different file, so new lock is better.
+                // But typically session save is rare, so simple async write is okay.
+                // For strict safety let's just do a simple async write here.
+                string json = JsonSerializer.Serialize(CurrentSessionPlaylist, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(SessionFilePath, json);
+            } catch (Exception ex) {
+                Logger.Warning("Failed to save session playlist", ex);
+            }
+        }
+
+        public void SaveSession() {
+            // Keep sync method for legacy calls, but ideally migrate
+             try {
+                if (CurrentSessionPlaylist == null) return;
+                string json = JsonSerializer.Serialize(CurrentSessionPlaylist, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(SessionFilePath, json);
+            } catch (Exception ex) {
+                Logger.Warning("Failed to save session playlist", ex);
+            }
+        }
+
+        public void LoadSession() {
+            try {
+                if (File.Exists(SessionFilePath)) {
+                    string json = File.ReadAllText(SessionFilePath);
+                    CurrentSessionPlaylist = JsonSerializer.Deserialize<Playlist>(json) ?? new Playlist();
+                    Logger.Info("Loaded previous session playlist");
+                }
+            } catch (Exception ex) {
+                Logger.Warning("Failed to load session playlist", ex);
+                CurrentSessionPlaylist = new Playlist();
+            }
+        }
+    }
+
+    public class PlaybackState {
+        public int CurrentIndex { get; set; } = 0;
+        public long PositionTicks { get; set; } = 0;
+        public double SpeedRatio { get; set; } = 1.0;
+        public DateTime LastPlayed { get; set; } = DateTime.MinValue;
     }
 }

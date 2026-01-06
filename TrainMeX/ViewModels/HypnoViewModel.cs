@@ -55,8 +55,16 @@ namespace TrainMeX.ViewModels {
         private double _volume;
         public virtual double Volume {
             get => _volume;
-            set => SetProperty(ref _volume, value);
+            set {
+                if (SetProperty(ref _volume, value)) {
+                    OnPropertyChanged(nameof(ActualVolume));
+                }
+            }
         }
+
+        // Cubic volume scaling + 50% Global Cap
+        // 100% UI volume = 1.0^3 * 0.5 = 0.5 (50% max output)
+        public double ActualVolume => Math.Pow(_volume, 3) * 0.5;
 
         private double _speedRatio = 1.0;
         public virtual double SpeedRatio {
@@ -77,6 +85,16 @@ namespace TrainMeX.ViewModels {
         }
 
         public bool UseCoordinatedStart { get; set; } = false;
+        
+        public bool IsShuffle {
+            get => App.Settings?.VideoShuffle ?? true;
+            set {
+                if (App.Settings != null) {
+                    App.Settings.VideoShuffle = value;
+                    OnPropertyChanged(nameof(IsShuffle));
+                }
+            }
+        }
         
         public event EventHandler RequestPlay;
         public event EventHandler RequestPause;
@@ -151,10 +169,61 @@ namespace TrainMeX.ViewModels {
             int attempts = 0;
             
             do {
-                if (_currentPos + 1 < _files.Length) {
-                    _currentPos++;
+                if (IsShuffle && _files.Length > 1) {
+                    // Smart Shuffle Logic
+                    // 1. Identify valid candidates (unplayed)
+                    var candidates = new System.Collections.Generic.List<int>();
+                    var allIndices = Enumerable.Range(0, _files.Length).ToList();
+                    
+                    // Filter out played items
+                    // We lock check against local file paths
+                    var history = new HashSet<string>(App.Settings.PlayedHistory ?? new List<string>());
+                    
+                    foreach (var i in allIndices) {
+                        if (_files[i] == null) continue;
+                        var path = _files[i].FilePath;
+                        if (!history.Contains(path)) {
+                            candidates.Add(i);
+                        }
+                    }
+
+                    // 2. If all played, reset history
+                    if (candidates.Count == 0) {
+                        Logger.Info("All videos played (Smart Shuffle). Resetting history loop.");
+                        if (App.Settings.PlayedHistory != null) {
+                            App.Settings.PlayedHistory.Clear();
+                            App.Settings.Save();
+                        }
+                        candidates = allIndices; // Fallback to all
+                    }
+
+                    // 3. Pick random
+                    if (candidates.Count > 0) {
+                        var rnd = new Random();
+                        _currentPos = candidates[rnd.Next(candidates.Count)];
+                        
+                        // 4. Record to history immediately
+                        var pickedPath = _files[_currentPos]?.FilePath;
+                        if (pickedPath != null && App.Settings.PlayedHistory != null) {
+                            App.Settings.PlayedHistory.Add(pickedPath);
+                            // Trim history if it gets too huge (optional, but good practice)
+                            if (App.Settings.PlayedHistory.Count > 10000) {
+                                App.Settings.PlayedHistory.RemoveRange(0, 1000); 
+                            }
+                            App.Settings.Save();
+                        }
+                    } else {
+                        // Should not happen if _files.Length > 0
+                        _currentPos = 0;
+                    }
+
                 } else {
-                    _currentPos = 0; // Loop
+                    // Sequential Logic
+                    if (_currentPos + 1 < _files.Length) {
+                        _currentPos++;
+                    } else {
+                        _currentPos = 0; // Loop
+                    }
                 }
                 
                 attempts++;
@@ -186,6 +255,18 @@ namespace TrainMeX.ViewModels {
                 if (!isValid) {
                     // Mark as failed and continue
                     _fileFailureCounts.AddOrUpdate(currentPath, MaxFailuresPerFile, (k, v) => MaxFailuresPerFile);
+                    
+                    // Log telemetry
+                    if (item.IsUrl) {
+                        try {
+                            var uri = new Uri(currentPath);
+                            App.Telemetry?.LogUrlFailure(uri.Host);
+                        } catch {
+                            App.Telemetry?.LogUrlFailure("invalid-url");
+                        }
+                    } else {
+                        App.Telemetry?.LogFormatFailure(System.IO.Path.GetExtension(currentPath));
+                    }
                     continue;
                 }
                 
@@ -232,16 +313,35 @@ namespace TrainMeX.ViewModels {
                 _currentItem = _files[_currentPos];
                 _currentItem.PropertyChanged += CurrentItem_PropertyChanged;
                 
+                _currentItem = _files[_currentPos];
+                _currentItem.PropertyChanged += CurrentItem_PropertyChanged;
+                
+                
                 var path = _currentItem.FilePath;
+                Logger.Info($"LoadCurrentVideo: Processing item '{_currentItem.FileName}' with path: {path}");
+                
+                // CRITICAL FIX: Detect and clean malformed Rule34Video URLs
+                // These URLs have the page URL concatenated with the video URL (e.g., "https://rule34video.com/video/.../function/0/https://...")
+                if (path.Contains("rule34video.com/video/") && path.Contains("/function/0/https://")) {
+                    Logger.Warning($"LoadCurrentVideo: Detected malformed Rule34Video URL with page prefix. Attempting to clean...");
+                    int httpIndex = path.IndexOf("https://", path.IndexOf("/function/0/"));
+                    if (httpIndex > 0) {
+                        var cleanedUrl = path.Substring(httpIndex);
+                        Logger.Info($"LoadCurrentVideo: Cleaned URL from '{path}' to '{cleanedUrl}'");
+                        path = cleanedUrl;
+                    }
+                }
                 
                 // Validate based on whether it's a URL or local file
                 if (_currentItem.IsUrl) {
+                    Logger.Info($"LoadCurrentVideo: Item is a URL, validating...");
                     // For URLs, validate URL format
                     if (!FileValidator.ValidateVideoUrl(path, out string urlValidationError)) {
                         Logger.Warning($"URL validation failed for '{_currentItem.FileName}': {urlValidationError}. Skipping to next video.");
                         PlayNext();
                         return;
                     }
+                    Logger.Info($"LoadCurrentVideo: URL validation passed for: {path}");
                 } else {
                     // For local files, check if path is rooted
                     if (!Path.IsPathRooted(path)) {
@@ -492,6 +592,39 @@ namespace TrainMeX.ViewModels {
         public void SyncPosition(TimeSpan position) {
             RequestSyncPosition?.Invoke(this, position);
         }
+
+        public (int index, long positionTicks, double speed, string[] paths) GetPlaybackState() {
+            // Return current state for persistence
+            // Note: _files might be large, but we only need paths
+            var paths = _files?.Select(f => f.FilePath).ToArray() ?? Array.Empty<string>();
+            var pos = LastPositionRecord.timestamp > 0 ? LastPositionRecord.timestamp : 0; 
+            // Actually LastPositionRecord.position is the TimeSpan position.
+            return (_currentPos, LastPositionRecord.position.Ticks, _speedRatio, paths);
+        }
+
+        public void RestoreState(int index, long positionTicks) {
+            if (_files == null || _files.Length == 0) return;
+            
+            // Validate index
+            if (index >= 0 && index < _files.Length) {
+                _currentPos = index;
+                // We need to signal that we want to start at this position
+                // Typically Play(index) would be called.
+                // But we want to seek too.
+                // We can set a "PendingSeek" or just rely on the fact that LoadCurrentVideo hasn't happened yet?
+                // If the window is just shown, LoadCurrentVideo might be called soon.
+                
+                // Let's set the index and let LoadCurrentVideo handle the loading.
+                // But we need to SEEK after loading.
+                
+                // We'll use a specific method or modify LoadCurrentVideo
+                // Ideally, we can set a property that OnMediaOpened uses to Seek.
+                _pendingSeekPosition = TimeSpan.FromTicks(positionTicks);
+                LoadCurrentVideo();
+            }
+        }
+        
+        private TimeSpan? _pendingSeekPosition;
     }
 
     /// <summary>

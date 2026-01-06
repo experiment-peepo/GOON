@@ -35,6 +35,9 @@ namespace TrainMeX.Classes {
         // Map file path to position data
         // Key is normalized path (lowercase full path)
         public Dictionary<string, FilePositionData> Positions { get; set; } = new Dictionary<string, FilePositionData>();
+        
+        // Cache used to store resolved paths significantly reducing Disk IO from Path.GetFullPath calls
+        private static readonly ConcurrentDictionary<string, string> _pathKeyCache = new ConcurrentDictionary<string, string>();
 
         public static PlaybackPositionTracker Instance => _instance ??= Load();
 
@@ -191,11 +194,26 @@ namespace TrainMeX.Classes {
         }
 
         private string GetFileKey(string filePath) {
-            try {
-                return Path.GetFullPath(filePath).ToLowerInvariant();
-            } catch {
-                return filePath.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(filePath)) return string.Empty;
+
+            // Fast return from cache
+            if (_pathKeyCache.TryGetValue(filePath, out var cachedKey)) {
+                return cachedKey;
             }
+
+            string key;
+            try {
+                // Optimization: If path is already rooted, we might just need to normalize casing
+                // But Path.GetFullPath resolves .. and . so it's safer, but expensive.
+                // We do it ONCE per session per file now.
+                key = Path.GetFullPath(filePath).ToLowerInvariant();
+            } catch {
+                key = filePath.Trim().ToLowerInvariant();
+            }
+            
+            // Store in cache
+            _pathKeyCache.TryAdd(filePath, key);
+            return key;
         }
 
         /// <summary>

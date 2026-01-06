@@ -212,16 +212,16 @@ namespace TrainMeX.Windows {
                  Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)) {
                 
                 // Don't trigger drag-drop if we are clicking on a Slider or ComboBox
-                var originalSource = e.OriginalSource as DependencyObject;
-                if (FindAncestor<Slider>(originalSource) != null || FindAncestor<ComboBox>(originalSource) != null) {
+                DependencyObject originalSource = e.OriginalSource as DependencyObject;
+                if (originalSource != null && (FindAncestor<Slider>(originalSource) != null || FindAncestor<ComboBox>(originalSource) != null)) {
                     return;
                 }
 
-                var listView = sender as ListView;
-                var listViewItem = FindAncestor<ListViewItem>(originalSource);
+                ListView listView = sender as ListView;
+                ListViewItem listViewItem = FindAncestor<ListViewItem>(originalSource);
                 if (listViewItem == null) return;
 
-                var data = (VideoItem)listView.ItemContainerGenerator.ItemFromContainer(listViewItem);
+                VideoItem data = (VideoItem)listView.ItemContainerGenerator.ItemFromContainer(listViewItem);
                 
                 DataObject dragData = new DataObject("VideoItem", data);
                 DragDrop.DoDragDrop(listViewItem, dragData, DragDropEffects.Move);
@@ -241,15 +241,21 @@ namespace TrainMeX.Windows {
 
         private void AddedFilesList_Drop(object sender, DragEventArgs e) {
             if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
-                var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+                string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
                 ViewModel?.AddDroppedFiles(files);
             } else if (e.Data.GetDataPresent("VideoItem")) {
-                var sourceItem = (VideoItem)e.Data.GetData("VideoItem");
-                var targetItem = ((FrameworkElement)e.OriginalSource).DataContext as VideoItem;
+                VideoItem sourceItem = (VideoItem)e.Data.GetData("VideoItem");
+                
+                // Find the target item by walking up from the original source
+                DependencyObject depObj = e.OriginalSource as DependencyObject;
+                ListViewItem listViewItem = FindAncestor<ListViewItem>(depObj);
+                VideoItem targetItem = listViewItem?.DataContext as VideoItem;
 
                 if (sourceItem != null && targetItem != null && sourceItem != targetItem) {
-                    var newIndex = ViewModel.AddedFiles.IndexOf(targetItem);
-                    ViewModel.MoveVideoItem(sourceItem, newIndex);
+                    int newIndex = ViewModel.AddedFiles.IndexOf(targetItem);
+                    if (newIndex >= 0) {
+                        ViewModel.MoveVideoItem(sourceItem, newIndex);
+                    }
                 }
             }
         }

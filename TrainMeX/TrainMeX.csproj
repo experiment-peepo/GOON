@@ -8,6 +8,8 @@
     <AssemblyName>TrainMeX</AssemblyName>
     <ApplicationIcon>Images\icon.ico</ApplicationIcon>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
     <Version>1.3.1-beta.1</Version>
   </PropertyGroup>
 
@@ -15,4 +17,6 @@
     <Resource Include="Images\**\*" />
   </ItemGroup>
 
+  <ItemGroup>
+  </ItemGroup>
 </Project>

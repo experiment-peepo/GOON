@@ -497,13 +497,16 @@ namespace TrainMeX.Classes {
 
                 var path = uri.AbsolutePath.ToLowerInvariant();
                 
+                // Remove trailing slash for extension check
+                var pathForExtension = path.TrimEnd('/');
+                
                 // Exclude file extensions (but allow .html/.htm for Hypnotube video pages)
                 var excludedExtensions = new[] { 
                     ".css", ".jpg", ".jpeg", ".png", ".gif", ".js", ".json", ".xml", ".ico", 
                     ".svg", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".rar", 
                     ".txt", ".md", ".webp", ".bmp", ".tiff"
                 };
-                if (excludedExtensions.Any(ext => path.EndsWith(ext))) {
+                if (excludedExtensions.Any(ext => pathForExtension.EndsWith(ext))) {
                     return false;
                 }
 

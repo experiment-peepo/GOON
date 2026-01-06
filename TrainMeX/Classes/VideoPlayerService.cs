@@ -35,7 +35,17 @@ namespace TrainMeX.Classes {
             _masterSyncTimer.Tick += MasterSyncTimer_Tick;
         }
 
+        private DateTime _lastSessionSave = DateTime.MinValue;
+
         private void MasterSyncTimer_Tick(object sender, EventArgs e) {
+            // ... (Existing sync logic) ...
+            
+            // Auto-save session state every 5 seconds
+            if ((DateTime.Now - _lastSessionSave).TotalSeconds > 5) {
+                SaveSessionState();
+                _lastSessionSave = DateTime.Now;
+            }
+
             List<HypnoWindow> playersSnapshot;
             lock (_playersLock) {
                 if (players.Count == 0) return;
@@ -293,7 +303,7 @@ namespace TrainMeX.Classes {
         /// Plays videos on specific monitors with per-monitor assignments
         /// </summary>
         /// <param name="assignments">Dictionary mapping screens to their video playlists</param>
-        public async System.Threading.Tasks.Task PlayPerMonitorAsync(IDictionary<ScreenViewer, IEnumerable<VideoItem>> assignments, bool showGroupControl = true) {
+        public async System.Threading.Tasks.Task PlayPerMonitorAsync(IDictionary<ScreenViewer, IEnumerable<VideoItem>> assignments, bool showGroupControl = true, PlaybackState resumeState = null) {
             StopAll();
             if (assignments == null) return;
             var allScreens = Screen.AllScreens;
@@ -324,6 +334,13 @@ namespace TrainMeX.Classes {
                 w.ViewModel.UseCoordinatedStart = true;
 
                 w.ViewModel.SetQueue(queue);
+                
+                // Apply Restore State if available
+                if (resumeState != null) {
+                    w.ViewModel.RestoreState(resumeState.CurrentIndex, resumeState.PositionTicks);
+                    // Also restore speed if needed
+                    if (resumeState.SpeedRatio != 1.0) w.ViewModel.SpeedRatio = resumeState.SpeedRatio;
+                }
 
 
                 lock (_playersLock) {
@@ -409,9 +426,49 @@ namespace TrainMeX.Classes {
             return false;
         }
 
-        /// <summary>
-        /// Clears the file existence cache
-        /// </summary>
+        private void SaveSessionState() {
+            // Updated to use async save to prevent UI stutter (fire-and-forget)
+            // No await here because this is called from a timer tick (void)
+            try {
+                if (App.Settings == null) return;
+
+                List<HypnoWindow> playersSnapshot;
+                lock (_playersLock) {
+                    playersSnapshot = players.ToList();
+                }
+
+                if (playersSnapshot.Count == 0) return;
+
+                // Grab the first active player to save as "Master" persistence
+                var master = playersSnapshot.FirstOrDefault();
+                if (master?.ViewModel == null) return;
+
+                var (index, ticks, speed, paths) = master.ViewModel.GetPlaybackState();
+
+                // Save only the lightweight state to settings.json
+                var state = App.Settings.LastPlaybackState ?? new PlaybackState();
+                state.CurrentIndex = index;
+                state.PositionTicks = ticks;
+                state.SpeedRatio = speed;
+                state.LastPlayed = DateTime.Now;
+                
+                App.Settings.LastPlaybackState = state;
+                
+                // ASYNC SAVE: Fire and forget task to avoid blocking the UI thread
+                // Catch exceptions inside the task to avoid unobserved task exceptions
+                _ = System.Threading.Tasks.Task.Run(async () => {
+                     try {
+                        await App.Settings.SaveAsync();
+                     } catch (Exception innerEx) {
+                        Logger.Warning("Failed to auto-save session (async)", innerEx);
+                     }
+                });
+
+            } catch (Exception ex) {
+                Logger.Warning("Failed to initiate auto-save session", ex);
+            }
+        }
+
         public void ClearFileExistenceCache() {
             _fileExistenceCache.Clear();
         }
