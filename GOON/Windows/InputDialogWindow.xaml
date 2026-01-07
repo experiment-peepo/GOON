@@ -1,0 +1,133 @@
+<!--
+	Copyright (C) 2021 Damsel
+
+	This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+	This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>. 
+-->
+
+<Window x:Class="GOON.Windows.InputDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:GOON.Windows"
+        mc:Ignorable="d"
+        Title="{Binding DialogTitle}" Width="520" 
+        SizeToContent="Height" MinHeight="220"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        WindowStartupLocation="CenterOwner"
+        AllowsTransparency="True" Background="Transparent"
+        Icon="pack://application:,,,/Images/icon.ico"
+        ShowInTaskbar="False">
+    <Border x:Name="MainBorder" 
+            Background="{StaticResource BackgroundPrimary}" 
+            BorderBrush="{StaticResource AccentPrimary}" 
+            BorderThickness="1"
+            CornerRadius="8"
+            SizeChanged="MainBorder_SizeChanged">
+        <Border.Clip>
+            <RectangleGeometry x:Name="MainBorderClip" RadiusX="8" RadiusY="8"/>
+        </Border.Clip>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Header with gradient and rounded corners -->
+            <Border x:Name="HeaderBorder" CornerRadius="8,8,0,0" 
+                    Height="50"
+                    Grid.Row="0">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#3D0A1F" Offset="0"/>
+                        <GradientStop Color="#3D0A1F" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid MouseLeftButtonDown="Grid_MouseLeftButtonDown">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
+                        <Image Source="pack://application:,,,/Images/icon.ico" Width="20" Height="20" Margin="0,0,10,0">
+                            <Image.Effect>
+                                <DropShadowEffect Color="#FF69B4" BlurRadius="8" ShadowDepth="0" Opacity="0.5"/>
+                            </Image.Effect>
+                        </Image>
+                        <TextBlock Text="{Binding DialogTitle}" Foreground="White" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <Button Grid.Column="2" Style="{StaticResource ControlButton}" 
+                            Click="CancelButton_Click" 
+                            Width="50" Height="50" 
+                            Background="Transparent"
+                            Foreground="White"
+                            BorderThickness="0"
+                            ToolTip="Cancel">
+                        <Path Data="{StaticResource Icon_Close}" Stretch="Uniform" Width="14" Height="14"/>
+                    </Button>
+                </Grid>
+            </Border>
+            
+            <!-- Content Area -->
+            <StackPanel Margin="24,24,24,20" Grid.Row="1">
+                <Label Content="{Binding LabelText}" 
+                       Foreground="{StaticResource TextPrimary}" 
+                       FontWeight="SemiBold" 
+                       FontSize="15"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,20"/>
+                <TextBox x:Name="InputTextBox"
+                         Style="{StaticResource PinkTextBoxStyle}"
+                         Text="{Binding InputText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Height="42"
+                         VerticalContentAlignment="Center"
+                         Margin="0,0,0,12"
+                         KeyDown="InputTextBox_KeyDown"
+                         ToolTip="Enter video filename or URL"/>
+                <TextBlock Text="Supported: Hypnotube, PMVHaven, RULE34Video"
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="11"
+                           FontStyle="Italic"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,0"
+                           TextAlignment="Center"/>
+            </StackPanel>
+            
+            <!-- Buttons -->
+            <StackPanel Orientation="Horizontal" 
+                       HorizontalAlignment="Right" 
+                       Margin="24,0,24,24" 
+                       Grid.Row="2">
+                <Button x:Name="OkButton" 
+                        Click="OkButton_Click"
+                        Margin="5,0" 
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        FontSize="14"
+                        FontWeight="Bold"
+                        Padding="25,10"
+                        ToolTip="OK">
+                    OK
+                </Button>
+                <Button x:Name="CancelButton" 
+                        Click="CancelButton_Click"
+                        Margin="5,0" 
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        FontSize="14"
+                        Padding="25,10"
+                        ToolTip="Cancel">
+                    Cancel
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
+

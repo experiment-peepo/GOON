@@ -1,12 +1,12 @@
-# TrainMeX `v1.3.1-beta.1`
+# GOØN `v1.3.1-beta.3`
 
 ![Build Status](https://github.com/experiment-peepo/TrainMe/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/github/license/experiment-peepo/TrainMe)
 ![Architecture](https://img.shields.io/badge/Architecture-x64-blue)
 
-**TrainMeX** is a specialized multi-screen video playback tool designed for immersive environments, therapy sessions, and installation art. It allows you to overlay video playback on specific monitors with independent opacity and audio controls, creating a seamless background experience without interfering with your primary workspace.
+**GOØN** is a specialized multi-screen video playback tool designed for immersive environments, therapy sessions, and installation art. It allows you to overlay video playback on specific monitors with independent opacity and audio controls, creating a seamless background experience without interfering with your primary workspace.
 
-![TrainMeX UI](assets/screenshot.png)
+![GOØN UI](assets/screenshot.png)
 
 ## Table of Contents
 - [Features](#features)
@@ -24,10 +24,11 @@
 - **Multi-Monitor Support**: Assign videos to specific screens or span them across all monitors.
 - **Independent Controls**: Adjust volume and opacity per video/layer.
 - **Panic Button**: Instantly stop all playback with a global hotkey (Default: `Ctrl+Shift+End`).
-- **Session Saving**: Automatically restores your last playlist and settings.
+- **Session Saving**: Automatically restores your last playlist, settings, and exact playback position.
 - **Format Support**: Plays MP4, MKV, WebM, AVI, MOV, WMV, MPEG, and more - any format supported by Windows Media Foundation.
-- **URL Import**: Import videos directly from supported websites or use direct video URLs.
-- **Stealth Mode**: Designed to run as an unobtrusive overlay.
+- **Advanced URL Import**: Hardened extraction engine for major media sites with specialized player support.
+- **Modern Interface**: A minimalist, high-performance UI designed for ease of use.
+- **Stealth Mode**: Designed to run as an unobtrusive, transparent overlay.
 
 ## Use Cases
 
@@ -38,30 +39,30 @@
 
 ## Quick Start
 
-1. **Download**: Grab the latest `TrainMeX.exe` from the [Releases](https://github.com/experiment-peepo/TrainMe/releases) page.
-2. **Run**: Double-click `TrainMeX.exe`. No installation needed.
-3. **Add Content**: Drag and drop video files onto the launcher.
+1. **Download**: Grab the latest `GOON.exe` from the [Releases](https://github.com/experiment-peepo/TrainMe/releases) page.
+2. **Run**: Double-click `GOON.exe`. No installation needed.
+3. **Add Content**: Drag and drop video files or paste URLs into the launcher.
 4. **Assign**: Select which monitor each video should play on.
-5. **Play**: Click **Train Me!** (or "Start All") to begin playback.
+5. **Start**: Click **Start All** to begin playback across your selected displays.
 
 ## Installation
 
-TrainMeX is a **portable application**.
+GOØN is a **portable application**.
 - **Prerequisites**: Windows 10/11 (x64).
 - **Setup**: None. Just unzip and run.
+- **Storage**: All settings and session data are stored in `%APPDATA%\GOON`.
 - **Video Codec Requirements**: For playing **AV1** or **HEVC (H.265)** video files, you must install the official extensions from the Microsoft Store:
   - [AV1 Video Extension](https://www.microsoft.com/en-us/p/av1-video-extension/9mvzqvxjbq9v) (Free)
   - [HEVC Video Extensions](https://www.microsoft.com/en-us/p/hevc-video-extensions/9nmzlz57r3t7) (Paid) 
-  - **Note:** Even if you have the **K-Lite Codec Pack** installed, this application (built with WPF) often relies on the native Windows extensions to play these specific formats correctly.
 
 ## Supported Websites
 
-TrainMeX features a hardened extraction engine with support for GZip decompression and specialized player patterns (like **Plyr**). It can automatically import videos from:
+GOØN features a hardened extraction engine with support for GZip decompression and specialized player patterns. It can automatically import videos from:
 
-- **Hypnotube** (hypnotube.com) - *Enhanced support for direct video and Plyr sources.*
+- **Hypnotube** (hypnotube.com) - *Enhanced support for direct video, LD+JSON, and Plyr sources.*
 - **Iwara** (iwara.tv) - *Support for direct video and JSON-embedded sources.*
-- **PMVHaven** (pmvhaven.com)
-- **RULE34Video** (rule34video.com)
+- **PMVHaven** (pmvhaven.com) - *LD+JSON parsing for accurate playlist and video extraction.*
+- **RULE34Video** (rule34video.com) - *Specialized token resolution and CDN fetching.*
 
 You can also use **direct video URLs** (ending in `.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.m4v`, `.webm`, or `.m3u8` for HLS streams).
 
@@ -69,19 +70,18 @@ You can also use **direct video URLs** (ending in `.mp4`, `.mkv`, `.avi`, `.mov`
 
 ### The Launcher
 The main window acts as your control center.
-- **Browse / Drag & Drop**: Add files to your playlist.
-- **Assignment Dropdown**: Choose the target monitor for each video.
-- **Opacity Slider**: detailed control over video transparency (0% = invisible, 100% = fully opaque).
-- **Volume Slider**: Individual audio levels.
+- **Playlist**: Manage your videos, drag to reorder, and see status/thumbnails.
+- **Assignment**: Choose the target monitor and initial opacity per item.
+- **Status Overlay**: Real-time feedback on active players and their status.
+- **Volume/Opacity Mixer**: Global and individual sliders for perfect environmental tuning.
 
-### During Playback
-- **Active Players**: You'll see a small list of active video windows in the launcher.
-- **Control**: You can Pause, Play, or Skip videos directly from the launcher without disturbing the fullscreen playback.
-- **Panic Key**: Hit `Ctrl+Shift+End` (configurable in settings) to immediately kill all video windows.
+### Hotkeys
+- **Panic Key**: `Ctrl+Shift+End` (configurable) immediately terminates all video windows.
+- **Media Controls**: Quick access to Play/Pause/Skip within the launcher.
 
 ## Building from Source
 
-To build TrainMeX yourself, you'll need the **.NET 8.0 SDK**.
+To build GOØN yourself, you'll need the **.NET 8.0 SDK**.
 
 1. **Clone the repo**
    ```bash
