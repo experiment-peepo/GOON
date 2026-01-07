@@ -1,4 +1,4 @@
-# GOØN `v1.3.1-beta.3`
+# GOØN
 
 ![Build Status](https://github.com/experiment-peepo/TrainMe/actions/workflows/release.yml/badge.svg)
 ![License](https://img.shields.io/github/license/experiment-peepo/TrainMe)
