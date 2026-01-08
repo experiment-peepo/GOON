@@ -16,10 +16,11 @@ GOON/Resources/*.exe
 !build_release_local.ps1
 
 # Test/debug files
-*_error.txt
-test_*.ps1
-check_*.ps1
-copy_*.ps1
+*.txt
+*.log
+!create_single_file.ps1
+!build_release_local.ps1
+!readme.md
 
 # IDE
 .vs/
