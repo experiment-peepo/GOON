@@ -1,0 +1,140 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore GOON.sln
+
+    - name: Generate Version
+      id: git_version
+      run: |
+        if ("${{ github.ref_type }}" -eq "tag") {
+          $version = "${{ github.ref_name }}" -replace "v", ""
+        } else {
+          $baseVersion = "1.0.0"
+          $runNumber = "${{ github.run_number }}"
+          $version = "$baseVersion.$runNumber"
+        }
+        
+        # Clean numeric version for AssemblyVersion/FileVersion
+        $numericVersion = ($version -split '-')[0]
+        if ($numericVersion -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+           $parts = $numericVersion.Split('.')
+           while ($parts.Count -lt 3) { $parts += "0" }
+           $numericVersion = ($parts[0..2] -join ".")
+        }
+
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+        echo "numeric_version=$numericVersion" >> $env:GITHUB_OUTPUT
+        
+        # Detect prerelease
+        $isPrerelease = ($version -match "beta|alpha|rc") ? "true" : "false"
+        echo "is_prerelease=$isPrerelease" >> $env:GITHUB_OUTPUT
+
+        echo "Computed Version: $version"
+        echo "Numeric Version: $numericVersion"
+        echo "Is Prerelease: $isPrerelease"
+      shell: pwsh
+      
+    - name: Build and Publish
+      run: |
+        dotnet publish GOON\GOON.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:Version=${{ steps.git_version.outputs.version }} `
+          -p:InformationalVersion=${{ steps.git_version.outputs.version }} `
+          -p:AssemblyVersion=${{ steps.git_version.outputs.numeric_version }} `
+          -p:FileVersion=${{ steps.git_version.outputs.numeric_version }} `
+          -o publish
+
+    - name: Download External Dependencies (yt-dlp & ffmpeg)
+      run: |
+        # Download yt-dlp
+        Write-Host "Downloading yt-dlp.exe..."
+        Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "publish/yt-dlp.exe" -UserAgent "Mozilla/5.0"
+        
+        # Download ffmpeg (essential for some yt-dlp operations)
+        Write-Host "Downloading ffmpeg..."
+        $ffmpegUrl = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+        Invoke-WebRequest -Uri $ffmpegUrl -OutFile "ffmpeg.zip" -UserAgent "Mozilla/5.0"
+        
+        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp"
+        # Find ffmpeg.exe in the extracted folder (it's usually in a subfolder)
+        $ffmpegExe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
+        Copy-Item -Path $ffmpegExe.FullName -Destination "publish/ffmpeg.exe"
+        
+        Write-Host "Dependencies downloaded."
+      shell: pwsh
+      
+    - name: Verify executable exists
+      run: |
+        $exePath = Get-ChildItem "publish/GO*.exe" | Select-Object -First 1
+        if (-not $exePath) {
+          Write-Error "GOØN.exe not found in publish directory"
+          exit 1
+        }
+        if (-not (Test-Path "publish/yt-dlp.exe")) {
+            Write-Error "yt-dlp.exe not found in publish directory"
+            exit 1
+        }
+        if (-not (Test-Path "publish/ffmpeg.exe")) {
+            Write-Error "ffmpeg.exe not found in publish directory"
+            exit 1
+        }
+        $fileSize = $exePath.Length
+        Write-Host "Executable found: $($exePath.Name) ($fileSize bytes)"
+        Write-Host "Dependencies verified: yt-dlp.exe, ffmpeg.exe"
+      shell: pwsh
+      
+    - name: Create Release
+      if: github.ref_type == 'tag'
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "publish/*"
+        tag: ${{ github.ref_name }}
+        name: ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta Release ' || 'Release ' }}${{ github.ref_name }}
+        body: |
+          ## GOØN ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta ' || '' }}Release ${{ steps.git_version.outputs.version }}
+          
+          ### Changes
+          ### Changes
+          - 🚀 **New Name**: Application is now **GOØN**.
+          - 🎨 **UI Polish**: Updated "Cyber Luxe" aesthetic with SVG icons and consistent styling.
+          - 🧹 **Clean Workspace**: Optimized project structure.
+          - 🏷️ **Version 1.0.0**: Initial Release.
+          
+          ### Installation
+          Download `GOØN.exe` from the assets below. The executable is portable and requires no installation.
+          
+          ### System Requirements
+          - Windows x64
+          - No .NET runtime required (self-contained)
+        draft: false
+        prerelease: ${{ steps.git_version.outputs.is_prerelease == 'true' }}
+        allowUpdates: true
+        omitBodyDuringUpdate: false
+        token: ${{ secrets.GITHUB_TOKEN }}
