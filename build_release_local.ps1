@@ -1,5 +1,13 @@
-# Local Release Build Script (Simulates GitHub Actions)
+param(
+    [switch]$Update
+)
+
 $ErrorActionPreference = "Stop"
+
+if ($Update) {
+    Write-Host "Updating dependencies before build..." -ForegroundColor Cyan
+    & "$PSScriptRoot\update_dependencies.ps1"
+}
 
 Write-Host "Starting Local Release Build..." -ForegroundColor Cyan
 

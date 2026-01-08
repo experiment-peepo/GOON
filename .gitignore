@@ -14,14 +14,13 @@ GOON/Resources/*.exe
 *.ps1
 !create_single_file.ps1
 !build_release_local.ps1
+!update_dependencies.ps1
+!readme.md
+!README.txt
 
 # Test/debug files
 *.txt
 *.log
-!create_single_file.ps1
-!build_release_local.ps1
-!readme.md
-!README.txt
 
 # IDE
 .vs/
