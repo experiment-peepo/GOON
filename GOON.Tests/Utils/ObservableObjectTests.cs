@@ -5,11 +5,11 @@ using Xunit;
 namespace GOON.Tests {
     public class ObservableObjectTests {
         private class TestObservable : ObservableObject {
-            private string _testProperty;
+            private string _testProperty = string.Empty;
             
-            public string TestProperty {
+            public string? TestProperty {
                 get => _testProperty;
-                set => SetProperty(ref _testProperty, value);
+                set => SetProperty(ref _testProperty, value ?? string.Empty);
             }
             
             private int _intProperty;

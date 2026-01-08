@@ -10,7 +10,7 @@ using Xunit;
 namespace GOON.Tests {
     public class PlaylistImporterTests {
         private readonly Mock<IHtmlFetcher> _mockFetcher;
-        private readonly Mock<VideoUrlExtractor> _mockUrlExtractor; // We can mock the class if virtual, or just use a real one since we mock fetcher
+
         private readonly PlaylistImporter _importer;
 
         public PlaylistImporterTests() {

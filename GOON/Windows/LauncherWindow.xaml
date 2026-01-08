@@ -207,7 +207,7 @@
                 <!-- Control Buttons on Right -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,0">
                     <Button Style="{StaticResource ControlButton}" Click="AboutButton_Click" Width="36" Height="50" ToolTip="About GOØN" Padding="0">
-                        <TextBlock Text="i" FontSize="14" FontWeight="SemiBold" FontFamily="Segoe UI, sans-serif" Foreground="{StaticResource TextSecondary}"/>
+                        <Path Data="{StaticResource Icon_Info}" Stretch="Uniform" Width="16" Height="16"/>
                     </Button>
                     <Button Style="{StaticResource ControlButton}" Click="SettingsButton_Click" Width="36" Height="50" ToolTip="Open settings" Padding="0">
                         <Path Data="{StaticResource Icon_Settings}" Stretch="Uniform" Width="16" Height="16"/>
@@ -441,10 +441,15 @@
                                               
                                     <!-- Remove Button -->
                                     <Button Grid.Column="3" 
-                                            Style="{StaticResource WindowHeaderCloseButtonStyle}"
+                                            Style="{StaticResource ControlButton}"
                                             Command="{Binding DataContext.RemoveItemCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}"
-                                            VerticalAlignment="Center"/>
+                                            VerticalAlignment="Center"
+                                            Width="24" Height="24"
+                                            Margin="8,0,0,0"
+                                            ToolTip="Remove video">
+                                        <Path Data="{StaticResource Icon_Close}" Stretch="Uniform" Width="10" Height="10"/>
+                                    </Button>
                                 </Grid>
                                 
                                 <!-- Controls Row -->
@@ -578,6 +583,41 @@
                 CommandParameter="{Binding ElementName=AddedFilesList, Path=SelectedItems}" 
                 Margin="0,20,0,0"
                 Grid.Row="9">
+            <Button.Content>
+                <Grid>
+                    <!-- Start State -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasActivePlayers}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Path Data="{StaticResource Icon_Play}" Stretch="Uniform" Width="12" Height="12" Fill="White" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="Start Gooning" Foreground="White" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Stop State -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasActivePlayers}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Path Data="{StaticResource Icon_Stop}" Stretch="Uniform" Width="12" Height="12" Fill="Black" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="End Gooning" Foreground="Black" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+            </Button.Content>
             <Button.Effect>
                 <DropShadowEffect Color="#FF69B4" BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
             </Button.Effect>

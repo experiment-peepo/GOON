@@ -24,7 +24,7 @@ namespace GOON.Tests {
             
             // Should handle gracefully (may be false on some systems due to path length limits)
             // Result is a bool, not an object
-            Assert.True(result || !result); // Just verify it returns a boolean
+            Assert.IsType<bool>(result);
         }
 
         [Fact]
@@ -36,7 +36,7 @@ namespace GOON.Tests {
             
             // Should handle Unicode characters
             // Result is a bool, verify it returns a boolean value
-            Assert.True(result || !result);
+            Assert.IsType<bool>(result);
         }
 
         [Fact]
@@ -139,7 +139,7 @@ namespace GOON.Tests {
         public void FileValidator_WithPathContainingOnlyDots_ReturnsFalse() {
             var result = FileValidator.IsValidPath("...");
             // Path.GetFullPath may normalize this, but it should still be invalid
-            Assert.True(result || !result); // Verify it returns a boolean
+            Assert.IsType<bool>(result);
         }
 
         [Fact]
@@ -147,11 +147,11 @@ namespace GOON.Tests {
             var result = FileValidator.IsValidPath("\\\\");
             // May return false or throw, both are acceptable
             // Result is a bool, verify it returns a boolean value
-            Assert.True(result || !result);
+            Assert.IsType<bool>(result);
         }
 
         private class TestObservable : ObservableObject {
-            private object _testObject;
+            private object _testObject = new object();
             
             public object TestObject {
                 get => _testObject;

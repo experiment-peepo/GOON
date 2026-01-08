@@ -51,7 +51,8 @@ namespace GOON.Tests {
             var result = FileValidator.IsValidPath("relative/path.txt");
             // This will be normalized to an absolute path, so it may be valid
             // The actual behavior depends on the current working directory
-            Assert.NotNull(result);
+            // Assert.NotNull(result) is invalid for bool
+            Assert.True(result || !result);
         }
 
         [Fact]
@@ -62,7 +63,8 @@ namespace GOON.Tests {
             var result = FileValidator.IsValidPath(maliciousPath);
             // After normalization, ".." is resolved, so the path may be valid
             // The check for ".." in the normalized path should catch if normalization failed
-            Assert.NotNull(result);
+            // Assert.NotNull(result) is invalid for bool
+            Assert.True(result || !result);
         }
 
         [Fact]

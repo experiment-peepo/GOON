@@ -204,7 +204,7 @@ namespace GOON.Tests {
         public void Clear_WhenAlreadyEmpty_DoesNothing() {
             ServiceContainer.Clear();
             ServiceContainer.Clear();
-            Assert.Equal(0, ServiceContainer._services.Count);
+            Assert.Empty(ServiceContainer._services);
         }
 
         #endregion

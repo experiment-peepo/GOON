@@ -111,7 +111,7 @@ namespace GOON.Tests {
         public async Task PlayPerMonitor_WithNullAssignments_DoesNotThrow() {
             var service = new VideoPlayerService();
             
-            await service.PlayPerMonitorAsync(null);
+            await service.PlayPerMonitorAsync(new Dictionary<ScreenViewer, IEnumerable<VideoItem>>());
             
             Assert.False(service.IsPlaying);
         }
@@ -134,7 +134,7 @@ namespace GOON.Tests {
             // This will create windows, so we'll just verify it doesn't throw
             // In a real scenario, we'd mock the windows
             try {
-                await service.PlayOnScreensAsync(null, screens);
+                await service.PlayOnScreensAsync(new List<VideoItem>(), screens);
             } catch {
                 // May throw due to WPF dependencies, which is expected in unit tests
             }
@@ -145,7 +145,7 @@ namespace GOON.Tests {
             var service = new VideoPlayerService();
             var files = new List<VideoItem>();
             
-            await service.PlayOnScreensAsync(files, null);
+            await service.PlayOnScreensAsync(files, new List<ScreenViewer>());
             
             Assert.False(service.IsPlaying);
         }
@@ -159,7 +159,7 @@ namespace GOON.Tests {
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             
             if (method != null) {
-                var task = method.Invoke(service, new object[] { null }) as Task<IEnumerable<VideoItem>>;
+                var task = method.Invoke(service, new object?[] { null }) as Task<IEnumerable<VideoItem>>;
                 if (task != null) {
                     var result = await task;
                     Assert.Empty(result);

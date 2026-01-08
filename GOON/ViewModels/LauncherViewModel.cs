@@ -35,10 +35,17 @@ namespace GOON.ViewModels {
         
         private Random random = new Random();
 
-        private bool _shuffle;
         public bool Shuffle {
-            get => _shuffle;
-            set => SetProperty(ref _shuffle, value);
+            get => App.Settings?.VideoShuffle ?? false;
+            set {
+                if (App.Settings != null) {
+                    if (App.Settings.VideoShuffle != value) {
+                        App.Settings.VideoShuffle = value;
+                        OnPropertyChanged(nameof(Shuffle));
+                        App.Settings.Save(); // Save immediately when toggled
+                    }
+                }
+            }
         }
 
         private string _hypnotizeButtonText = "TRAIN ME!";

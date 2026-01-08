@@ -112,7 +112,7 @@ namespace GOON.Tests {
         public void OnMediaFailed_WithException_RaisesMediaErrorOccurred() {
             var viewModel = new HypnoViewModel();
             bool errorRaised = false;
-            string errorMessage = null;
+            string? errorMessage = null;
             
             viewModel.MediaErrorOccurred += (s, e) => {
                 errorRaised = true;

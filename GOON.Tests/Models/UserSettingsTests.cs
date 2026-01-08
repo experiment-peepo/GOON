@@ -49,7 +49,7 @@ namespace GOON.Tests {
         }
 
         [Fact]
-        public void Save_Concurrent_IsThreadSafe() {
+        public async Task Save_Concurrent_IsThreadSafe() {
             var settings = new UserSettings();
             var tasks = new Task[10];
             for (int i = 0; i < tasks.Length; i++) {
@@ -59,7 +59,7 @@ namespace GOON.Tests {
                     }
                 });
             }
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
 
         #endregion

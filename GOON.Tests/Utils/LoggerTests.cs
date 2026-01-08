@@ -91,7 +91,7 @@ namespace GOON.Tests {
         }
 
         [Fact]
-        public void Log_ThreadSafety_MultipleConcurrentWrites() {
+        public async Task Log_ThreadSafety_MultipleConcurrentWrites() {
             // Arrange
             var tasks = new Task[10];
             
@@ -109,7 +109,7 @@ namespace GOON.Tests {
                 });
             }
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
 
             // Assert
             var logContent = File.ReadAllText(_testLogFile);

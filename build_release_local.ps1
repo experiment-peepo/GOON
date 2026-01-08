@@ -9,22 +9,64 @@ if ($Update) {
     & "$PSScriptRoot\update_dependencies.ps1"
 }
 
-Write-Host "Starting Local Release Build..." -ForegroundColor Cyan
+# Path to Project File
+$projectFile = Join-Path $PSScriptRoot "GOON\GOON.csproj"
 
-# 1. Cleanup
+if (-not (Test-Path $projectFile)) {
+    Write-Error "Project file not found at $projectFile"
+    exit 1
+}
+
+# 1. Read and Increment Version
+Write-Host "Reading current version..." -ForegroundColor Cyan
+$content = Get-Content $projectFile -Raw
+$versionPattern = "(?<=<Version>)(.*?)(?=</Version>)"
+
+if ($content -match $versionPattern) {
+    $currentVersionStr = $matches[0]
+    try {
+        $version = [Version]$currentVersionStr
+        # Increment Patch (Build) number. 
+        # Note: [Version] parses "1.0.2" as Major=1, Minor=0, Build=2.
+        # We want to increment 'Build' (the 3rd number) or 'Revision' if 4 numbers exists? 
+        # Usually semantic versioning is Major.Minor.Patch. .NET Version is Major.Minor.Build.Revision.
+        # So matching 3rd component is correct.
+        
+        $newVersion = [Version]::new($version.Major, $version.Minor, $version.Build + 1)
+        
+        Write-Host "Incrementing version: $currentVersionStr -> $newVersion" -ForegroundColor Green
+        
+        # Update Content - Use simple replacement to avoid backreference ambiguity
+        # Replace <Version>...</Version> with <Version>NewVersion</Version>
+        $newContent = $content -replace "<Version>.*?</Version>", "<Version>$newVersion</Version>"
+        Set-Content -Path $projectFile -Value $newContent -NoNewline
+    }
+    catch {
+        Write-Error "Failed to parse or increment version '$currentVersionStr'. Error: $_"
+        exit 1
+    }
+}
+else {
+    Write-Error "Could not find <Version> tag in $projectFile"
+    exit 1
+}
+
+Write-Host "Starting Release Build v$newVersion..." -ForegroundColor Cyan
+
+# 2. Cleanup
 if (Test-Path "publish") {
     Write-Host "Cleaning up previous publish directory..."
     Remove-Item "publish" -Recurse -Force
 }
 
-# 2. Build and Publish (Framework-dependent - works with WPF!)
+# 3. Build and Publish (Framework-dependent - works with WPF!)
 Write-Host "Building GOON project..." -ForegroundColor Yellow
 dotnet publish GOON\GOON.csproj `
     -c Release `
-    -p:Version=1.0.2 `
-    -p:InformationalVersion=1.0.2 `
-    -p:AssemblyVersion=1.0.2.0 `
-    -p:FileVersion=1.0.2.0 `
+    -p:Version=$newVersion `
+    -p:InformationalVersion=$newVersion `
+    -p:AssemblyVersion="$($newVersion.Major).$($newVersion.Minor).$($newVersion.Build).0" `
+    -p:FileVersion="$($newVersion.Major).$($newVersion.Minor).$($newVersion.Build).0" `
     -o publish
 
 if ($LASTEXITCODE -ne 0) {
@@ -32,7 +74,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 3. Copy Dependencies from local folder
+# 4. Copy Dependencies from local folder
 Write-Host "Copying External Dependencies..." -ForegroundColor Yellow
 
 if (-not (Test-Path "Dependencies\ffmpeg.exe")) {
@@ -54,11 +96,11 @@ Write-Host "Copied yt-dlp.exe from Dependencies"
 Copy-Item "README.txt" "publish\README.txt" -Force
 Write-Host "Copied README.txt to publish folder"
 
-# 4. Create Data Folder (Portable Mode)
+# 5. Create Data Folder (Portable Mode)
 Write-Host "Creating Data folder for Portable Mode..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path "publish\Data" | Out-Null
 
-# 4. Verification
+# 6. Verification
 Write-Host "`nVerifying Artifacts..." -ForegroundColor Yellow
 
 $goonExe = Get-ChildItem "publish/GO*.exe" | Select-Object -First 1
@@ -73,13 +115,13 @@ if ($goonExe -and $ytDlp -and $ffmpeg) {
     Write-Host "`nNote: This is a framework-dependent build." -ForegroundColor Cyan
     Write-Host "Users need .NET 8 Runtime installed: https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Cyan
 
-    # 5. Create Zip Package
-    Write-Host "`n[5] Creating GOON.zip package..." -ForegroundColor Yellow
+    # 7. Create Zip Package
+    Write-Host "`n[7] Creating GOON.zip package..." -ForegroundColor Yellow
     if (Test-Path "GOON.zip") { Remove-Item "GOON.zip" -Force }
     Compress-Archive -Path "publish/*" -DestinationPath "GOON.zip" -CompressionLevel Optimal
     
     $zipSize = [math]::Round((Get-Item "GOON.zip").Length / 1MB, 2)
-    Write-Host "`n✅ SUCCESS! Created GOON.zip ($zipSize MB)" -ForegroundColor Green
+    Write-Host "`n✅ SUCCESS! Created GOON.zip ($zipSize MB) for version $newVersion" -ForegroundColor Green
 }
 else {
     Write-Error "Verification Failed! Missing files."

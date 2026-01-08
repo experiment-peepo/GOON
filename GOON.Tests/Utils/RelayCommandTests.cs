@@ -34,7 +34,7 @@ namespace GOON.Tests {
 
         [Fact]
         public void Execute_PassesParameter() {
-            object receivedParameter = null;
+            object? receivedParameter = null;
             var expectedParameter = new object();
             var command = new RelayCommand(param => receivedParameter = param);
             
@@ -72,7 +72,7 @@ namespace GOON.Tests {
 
         [Fact]
         public void CanExecute_WithPredicate_PassesParameter() {
-            object receivedParameter = null;
+            object? receivedParameter = null;
             var expectedParameter = new object();
             var command = new RelayCommand(
                 _ => { },
@@ -100,9 +100,7 @@ namespace GOON.Tests {
         [Fact]
         public void CanExecuteChanged_CanBeSubscribed() {
             var command = new RelayCommand(_ => { });
-            bool eventRaised = false;
-            
-            command.CanExecuteChanged += (s, e) => eventRaised = true;
+            command.CanExecuteChanged += (s, e) => { };
             
             // CommandManager.RequerySuggested is raised by WPF framework
             // In tests, we can't easily trigger it, but we can verify subscription works
@@ -112,8 +110,7 @@ namespace GOON.Tests {
         [Fact]
         public void CanExecuteChanged_CanBeUnsubscribed() {
             var command = new RelayCommand(_ => { });
-            bool eventRaised = false;
-            EventHandler handler = (s, e) => eventRaised = true;
+            EventHandler handler = (s, e) => { };
             
             command.CanExecuteChanged += handler;
             command.CanExecuteChanged -= handler;
