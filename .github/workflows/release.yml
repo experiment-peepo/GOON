@@ -59,23 +59,40 @@ jobs:
       
     - name: Download External Dependencies (yt-dlp & ffmpeg)
       run: |
+        $ErrorActionPreference = "Stop"
+        $ProgressPreference = 'SilentlyContinue'
+        
+        Write-Host "Current location: $(Get-Location)"
         New-Item -ItemType Directory -Force -Path "Dependencies"
         
         # Download yt-dlp
         Write-Host "Downloading yt-dlp.exe..."
         Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "Dependencies/yt-dlp.exe" -UserAgent "Mozilla/5.0"
         
-        # Download ffmpeg (essential for some yt-dlp operations)
+        if (Test-Path "Dependencies/yt-dlp.exe") {
+            Write-Host "yt-dlp.exe downloaded. Size: $((Get-Item "Dependencies/yt-dlp.exe").Length)"
+        } else {
+            Write-Error "Failed to download yt-dlp.exe"
+        }
+        
+        # Download ffmpeg
         Write-Host "Downloading ffmpeg..."
         $ffmpegUrl = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
         Invoke-WebRequest -Uri $ffmpegUrl -OutFile "ffmpeg.zip" -UserAgent "Mozilla/5.0"
         
-        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp"
-        # Find ffmpeg.exe in the extracted folder (it's usually in a subfolder)
-        $ffmpegExe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
-        Copy-Item -Path $ffmpegExe.FullName -Destination "Dependencies/ffmpeg.exe"
+        Write-Host "Extracting ffmpeg..."
+        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp" -Force
         
-        Write-Host "Dependencies downloaded to Dependencies/"
+        $ffmpegExe = Get-ChildItem -Path "ffmpeg_temp" -Filter "ffmpeg.exe" -Recurse | Select-Object -First 1
+        if ($ffmpegExe) {
+            Copy-Item -Path $ffmpegExe.FullName -Destination "Dependencies/ffmpeg.exe" -Force
+            Write-Host "ffmpeg.exe copied. Size: $((Get-Item "Dependencies/ffmpeg.exe").Length)"
+        } else {
+            Write-Error "ffmpeg.exe not found in downloaded zip!"
+        }
+        
+        Write-Host "Listing Dependencies folder:"
+        Get-ChildItem "Dependencies" | Select-Object Name, Length, LastWriteTime | Format-Table
       shell: pwsh
       
     - name: Build and Publish
@@ -83,9 +100,8 @@ jobs:
         dotnet publish GOON\GOON.csproj `
           -c Release `
           -r win-x64 `
-          --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
+          --self-contained false `
+          -p:PublishSingleFile=false `
           -p:Version=${{ steps.git_version.outputs.version }} `
           -p:InformationalVersion=${{ steps.git_version.outputs.version }} `
           -p:AssemblyVersion=${{ steps.git_version.outputs.numeric_version }} `
