@@ -1,0 +1,16 @@
+[bB]in/
+[oO]bj/
+.vs/
+.vscode/
+publish/
+publish_test/
+*.zip
+*.log
+Dependencies/
+test_deps/
+*.user
+
+publish_debug_loose/
+
+publish_debug/
+ffmpeg_temp/

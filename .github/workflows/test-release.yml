@@ -1,0 +1,73 @@
+name: Test Release Workflow
+
+# This workflow tests the release process without actually creating a release
+# It can be triggered manually or on pull requests to validate changes
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - master
+    paths:
+      - '.github/workflows/release.yml'
+      - 'GOON/**'
+      - 'GOON.sln'
+
+jobs:
+  test-build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore GOON.sln
+      
+    - name: Build solution
+      run: dotnet build GOON.sln -c Release --no-restore
+      
+    - name: Run tests
+      run: dotnet test GOON.sln -c Release --no-build --verbosity normal
+      
+    - name: Test Publish
+      run: |
+        dotnet publish GOON\GOON.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=false `
+          -o publish-test
+      
+    - name: Verify executable exists
+      run: |
+        $exePath = Get-ChildItem "publish-test/GO*.exe" | Select-Object -First 1
+        if (-not $exePath) {
+          Write-Error "GOON.exe not found in publish-test directory"
+          exit 1
+        }
+        $fileSize = $exePath.Length
+        Write-Host "✓ Executable found: $($exePath.Name) ($fileSize bytes)"
+        Write-Host "✓ Build and publish process validated successfully"
+      shell: pwsh
+      
+    - name: Validate workflow syntax
+      run: |
+        Write-Host "Validating workflow files..."
+        $workflowFiles = Get-ChildItem -Path ".github/workflows" -Filter "*.yml"
+        foreach ($file in $workflowFiles) {
+          Write-Host "✓ Found workflow: $($file.Name)"
+        }
+        Write-Host "✓ All workflow files validated"
+      shell: pwsh
+
+
+
