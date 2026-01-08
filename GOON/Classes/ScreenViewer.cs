@@ -41,7 +41,7 @@ namespace GOON.Classes {
         public override int GetHashCode() => DeviceName?.GetHashCode() ?? 0;
 
         public override string ToString() {
-            if (IsAllScreens) return "[All Monitors]";
+            if (IsAllScreens) return "All Monitors";
 
             // Extract screen number from DeviceName (e.g., "\\\\.\\DISPLAY1" -> "Screen 1")
             int screenNumber = 1;

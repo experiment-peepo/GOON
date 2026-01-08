@@ -389,7 +389,7 @@ namespace GOON.Classes {
                 var allScreensPlayers = playersSnapshot.Where(p => p.ViewModel.UseCoordinatedStart).ToList();
                 if (allScreensPlayers.Any()) {
                      var groupVm = new GroupHypnoViewModel(allScreensPlayers.Select(p => p.ViewModel));
-                     ActivePlayers.Add(new ActivePlayerViewModel("[All Monitors]", groupVm));
+                     ActivePlayers.Add(new ActivePlayerViewModel("All Monitors", groupVm));
                 }
             }
 

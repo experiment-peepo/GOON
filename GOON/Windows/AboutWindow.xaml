@@ -54,7 +54,7 @@
                                FontSize="12"/>
                 </StackPanel>
 
-                <TextBlock Text="GOØN is a premium specialized video player designed for multi-monitor playback with high-performance overlay capabilities directly on your desktop." 
+                <TextBlock Text="GOØN is a specialized video player designed for multi-monitor playback with overlay capabilities for desktop" 
                            Foreground="{StaticResource TextSecondary}" 
                            TextWrapping="Wrap" 
                            TextAlignment="Center"
