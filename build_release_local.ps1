@@ -1,5 +1,6 @@
 param(
-    [switch]$Update
+    [switch]$Update,
+    [switch]$NoIncrement
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,26 +25,25 @@ $versionPattern = "(?<=<Version>)(.*?)(?=</Version>)"
 
 if ($content -match $versionPattern) {
     $currentVersionStr = $matches[0]
-    try {
-        $version = [Version]$currentVersionStr
-        # Increment Patch (Build) number. 
-        # Note: [Version] parses "1.0.2" as Major=1, Minor=0, Build=2.
-        # We want to increment 'Build' (the 3rd number) or 'Revision' if 4 numbers exists? 
-        # Usually semantic versioning is Major.Minor.Patch. .NET Version is Major.Minor.Build.Revision.
-        # So matching 3rd component is correct.
-        
-        $newVersion = [Version]::new($version.Major, $version.Minor, $version.Build + 1)
-        
-        Write-Host "Incrementing version: $currentVersionStr -> $newVersion" -ForegroundColor Green
-        
-        # Update Content - Use simple replacement to avoid backreference ambiguity
-        # Replace <Version>...</Version> with <Version>NewVersion</Version>
-        $newContent = $content -replace "<Version>.*?</Version>", "<Version>$newVersion</Version>"
-        Set-Content -Path $projectFile -Value $newContent -NoNewline
+    
+    if (-not $NoIncrement) {
+        try {
+            $version = [Version]$currentVersionStr
+            $newVersion = [Version]::new($version.Major, $version.Minor, $version.Build + 1)
+            
+            Write-Host "Incrementing version: $currentVersionStr -> $newVersion" -ForegroundColor Green
+            
+            $newContent = $content -replace "<Version>.*?</Version>", "<Version>$newVersion</Version>"
+            Set-Content -Path $projectFile -Value $newContent -NoNewline
+        }
+        catch {
+            Write-Error "Failed to parse or increment version '$currentVersionStr'. Error: $_"
+            exit 1
+        }
     }
-    catch {
-        Write-Error "Failed to parse or increment version '$currentVersionStr'. Error: $_"
-        exit 1
+    else {
+        $newVersion = [Version]$currentVersionStr
+        Write-Host "Using current version: $newVersion" -ForegroundColor Green
     }
 }
 else {
@@ -59,18 +59,13 @@ if (Test-Path "publish") {
     Remove-Item "publish" -Recurse -Force
 }
 
-# 3. Build and Publish (Self-Contained Single File)
+# 3. Build and Publish (Framework-dependent - works with WPF!)
 Write-Host "Building GOON project..." -ForegroundColor Yellow
 dotnet publish GOON\GOON.csproj `
     -c Release `
     -r win-x64 `
-    --self-contained true `
-    -p:PublishSingleFile=true `
-    -p:IncludeNativeLibrariesForSelfExtract=true `
-    -p:Version=$newVersion `
-    -p:InformationalVersion=$newVersion `
-    -p:AssemblyVersion="$($newVersion.Major).$($newVersion.Minor).$($newVersion.Build).0" `
-    -p:FileVersion="$($newVersion.Major).$($newVersion.Minor).$($newVersion.Build).0" `
+    --self-contained false `
+    -p:PublishSingleFile=false `
     -o publish
 
 if ($LASTEXITCODE -ne 0) {
@@ -116,8 +111,8 @@ if ($goonExe -and $ytDlp -and $ffmpeg) {
     Get-ChildItem "publish" -Filter "*.exe" | ForEach-Object { 
         Write-Host "$($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB" 
     }
-    Write-Host "`nNote: This is a Self-Contained Single-File build." -ForegroundColor Cyan
-    Write-Host "Runs on Windows x64 without external .NET installation." -ForegroundColor Cyan
+    Write-Host "`nNote: This is a framework-dependent build." -ForegroundColor Cyan
+    Write-Host "Users need .NET 8 Runtime installed: https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Cyan
 
     # 7. Create Zip Package
     Write-Host "`n[7] Creating GOON.zip package..." -ForegroundColor Yellow
