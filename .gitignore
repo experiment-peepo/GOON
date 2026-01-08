@@ -13,6 +13,7 @@ GOON/Resources/*.exe
 *.zip
 *.ps1
 !create_single_file.ps1
+!build_release_local.ps1
 
 # Test/debug files
 *_error.txt
