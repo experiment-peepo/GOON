@@ -1,7 +1,12 @@
-GOON v1.0
-=========
+GOON v1.0.2
+===========
 
 A specialized video player designed for multi-monitor playback with high-performance overlay capabilities.
+
+*******************************************************************************
+** IMPORTANT: YOU MUST INSTALL THE .NET 8 DESKTOP RUNTIME FIRST!             **
+** Download here: https://dotnet.microsoft.com/download/dotnet/8.0           **
+*******************************************************************************
 
 KEY CAPABILITIES
 ----------------
@@ -10,20 +15,16 @@ KEY CAPABILITIES
 * Truly Portable: Stores all settings, logs, and sessions in a local 'Data' folder if write access is available.
 * Web Integration: Stream directly from supported sites using integrated yt-dlp support.
 
-DEPENDENCIES
-------------
-* .NET 8 Desktop Runtime: Required to be installed (https://dotnet.microsoft.com/download/dotnet/8.0).
-* Bundled Tools: 'ffmpeg' and 'yt-dlp' are already included in this package.
-
 QUICK START
 -----------
-1. Extract the contents of this zip to a folder.
-2. Run GOON.exe.
-3. Drag and drop videos or paste URLs to get started.
+1. Install the .NET 8 Desktop Runtime (linked above).
+2. Extract the contents of this zip to a folder.
+3. Run GOON.exe.
+4. Drag and drop videos or paste URLs to get started.
 
 KNOWN NOTES
 -----------
-* Folder Distribution: This version is distributed as a folder bundle for maximum UI stability on .NET 8.
+* Lean Distribution: This version is "Framework-Dependent" to keep the file size small and the folder clean. It relies on your system's .NET 8 installation.
 * Data Storage: If the app cannot create a local 'Data' folder (e.g., in a protected Program Files directory), it will fall back to %AppData%\GOON.
 
 ---

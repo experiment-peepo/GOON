@@ -62,7 +62,7 @@ jobs:
         dotnet publish GOON\GOON.csproj `
           -c Release `
           -r win-x64 `
-          --self-contained true `
+          --self-contained false `
           -p:PublishSingleFile=false `
           -p:Version=${{ steps.git_version.outputs.version }} `
           -p:InformationalVersion=${{ steps.git_version.outputs.version }} `
