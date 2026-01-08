@@ -1,0 +1,28 @@
+# Build outputs
+bin/
+obj/
+publish/
+publish_test*/
+release/
+
+# Dependencies (too large for git)
+Dependencies/
+GOON/Resources/*.exe
+
+# Release packages
+*.zip
+*.ps1
+
+# Test/debug files
+*_error.txt
+test_*.ps1
+check_*.ps1
+copy_*.ps1
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.log
+test_output.txt
