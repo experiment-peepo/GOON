@@ -57,6 +57,16 @@ jobs:
         echo "Is Prerelease: $isPrerelease"
       shell: pwsh
       
+    - name: Update Project Version
+      run: |
+        $version = "${{ steps.git_version.outputs.version }}"
+        $projectFile = "GOON\GOON.csproj"
+        $content = Get-Content $projectFile -Raw
+        $newContent = $content -replace "<Version>.*?</Version>", "<Version>$version</Version>"
+        Set-Content -Path $projectFile -Value $newContent
+        Write-Host "Updated GOON.csproj version to $version"
+      shell: pwsh
+      
     - name: Download External Dependencies (yt-dlp & ffmpeg)
       run: |
         $ErrorActionPreference = "Stop"
@@ -102,10 +112,6 @@ jobs:
           -r win-x64 `
           --self-contained false `
           -p:PublishSingleFile=false `
-          -p:Version=${{ steps.git_version.outputs.version }} `
-          -p:InformationalVersion=${{ steps.git_version.outputs.version }} `
-          -p:AssemblyVersion=${{ steps.git_version.outputs.numeric_version }} `
-          -p:FileVersion=${{ steps.git_version.outputs.numeric_version }} `
           -o publish
 
 
