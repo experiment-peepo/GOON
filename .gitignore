@@ -21,6 +21,7 @@ GOON/Resources/*.exe
 !create_single_file.ps1
 !build_release_local.ps1
 !readme.md
+!README.txt
 
 # IDE
 .vs/

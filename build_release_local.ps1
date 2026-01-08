@@ -43,6 +43,13 @@ Write-Host "Copied ffmpeg.exe from Dependencies"
 Copy-Item "Dependencies\yt-dlp.exe" "publish\yt-dlp.exe" -Force
 Write-Host "Copied yt-dlp.exe from Dependencies"
 
+Copy-Item "README.txt" "publish\README.txt" -Force
+Write-Host "Copied README.txt to publish folder"
+
+# 4. Create Data Folder (Portable Mode)
+Write-Host "Creating Data folder for Portable Mode..." -ForegroundColor Yellow
+New-Item -ItemType Directory -Force -Path "publish\Data" | Out-Null
+
 # 4. Verification
 Write-Host "`nVerifying Artifacts..." -ForegroundColor Yellow
 

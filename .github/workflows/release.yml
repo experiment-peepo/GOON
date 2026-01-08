@@ -109,6 +109,12 @@ jobs:
         Write-Host "Dependencies verified: yt-dlp.exe, ffmpeg.exe"
       shell: pwsh
       
+    - name: Create Data Folder and Add README
+      run: |
+        New-Item -ItemType Directory -Force -Path "publish/Data"
+        Copy-Item "README.txt" "publish/README.txt"
+      shell: pwsh
+      
     - name: Create Zip Package
       run: |
         Compress-Archive -Path "publish/*" -DestinationPath "GOON.zip" -CompressionLevel Optimal
