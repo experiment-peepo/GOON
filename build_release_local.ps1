@@ -59,10 +59,14 @@ if (Test-Path "publish") {
     Remove-Item "publish" -Recurse -Force
 }
 
-# 3. Build and Publish (Framework-dependent - works with WPF!)
+# 3. Build and Publish (Self-Contained Single File)
 Write-Host "Building GOON project..." -ForegroundColor Yellow
 dotnet publish GOON\GOON.csproj `
     -c Release `
+    -r win-x64 `
+    --self-contained true `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:Version=$newVersion `
     -p:InformationalVersion=$newVersion `
     -p:AssemblyVersion="$($newVersion.Major).$($newVersion.Minor).$($newVersion.Build).0" `
@@ -112,8 +116,8 @@ if ($goonExe -and $ytDlp -and $ffmpeg) {
     Get-ChildItem "publish" -Filter "*.exe" | ForEach-Object { 
         Write-Host "$($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB" 
     }
-    Write-Host "`nNote: This is a framework-dependent build." -ForegroundColor Cyan
-    Write-Host "Users need .NET 8 Runtime installed: https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Cyan
+    Write-Host "`nNote: This is a Self-Contained Single-File build." -ForegroundColor Cyan
+    Write-Host "Runs on Windows x64 without external .NET installation." -ForegroundColor Cyan
 
     # 7. Create Zip Package
     Write-Host "`n[7] Creating GOON.zip package..." -ForegroundColor Yellow

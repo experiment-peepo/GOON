@@ -83,8 +83,9 @@ jobs:
         dotnet publish GOON\GOON.csproj `
           -c Release `
           -r win-x64 `
-          --self-contained false `
-          -p:PublishSingleFile=false `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:Version=${{ steps.git_version.outputs.version }} `
           -p:InformationalVersion=${{ steps.git_version.outputs.version }} `
           -p:AssemblyVersion=${{ steps.git_version.outputs.numeric_version }} `
