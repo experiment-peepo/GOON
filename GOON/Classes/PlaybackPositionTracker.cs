@@ -28,8 +28,7 @@ namespace GOON.Classes {
         private static string _settingsPath;
 
         static PlaybackPositionTracker() {
-             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-             _settingsPath = Path.Combine(appData, "GOON", PositionsFileName);
+             _settingsPath = AppPaths.PositionsFile;
         }
 
         // Map file path to position data
@@ -60,11 +59,11 @@ namespace GOON.Classes {
                     try {
                         var tracker = JsonSerializer.Deserialize<PlaybackPositionTracker>(json);
                         if (tracker != null && tracker.Positions != null) {
-                            Logger.Info($"[PositionTracker] Loaded {tracker.Positions.Count} positions from AppData");
+                            Logger.Info($"[PositionTracker] Loaded {tracker.Positions.Count} positions from data directory");
                             return tracker;
                         }
                     } catch (JsonException) {
-                        Logger.Info("[PositionTracker] Detected legacy format in AppData, attempting conversion...");
+                        Logger.Info("[PositionTracker] Detected legacy format in data directory, attempting conversion...");
                         var legacy = JsonSerializer.Deserialize<LegacyTracker>(json);
                         if (legacy?.Positions != null) {
                             var tracker = new PlaybackPositionTracker();
@@ -75,7 +74,7 @@ namespace GOON.Classes {
                                     LastUpdated = DateTime.Now
                                 };
                             }
-                            Logger.Info($"[PositionTracker] Successfully migrated {tracker.Positions.Count} legacy positions in AppData");
+                            Logger.Info($"[PositionTracker] Successfully migrated {tracker.Positions.Count} legacy positions in data directory");
                             return tracker;
                         }
                     }
@@ -284,7 +283,7 @@ namespace GOON.Classes {
                     Directory.CreateDirectory(directory);
                 }
                 File.WriteAllText(_settingsPath, json);
-                Logger.Info($"[PositionTracker] Successfully saved {count} positions to AppData");
+                Logger.Info($"[PositionTracker] Successfully saved {count} positions to data directory");
             } catch (Exception ex) {
                 Logger.Error("[PositionTracker] Critical error during file write", ex);
             }

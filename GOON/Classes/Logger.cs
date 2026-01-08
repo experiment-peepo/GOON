@@ -14,17 +14,7 @@ namespace GOON.Classes {
         internal const int MaxConsecutiveFailures = 10; // Stop trying file logging after this many failures
 
         static Logger() {
-            try {
-                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                var logDir = Path.Combine(appData, "GOON");
-                if (!Directory.Exists(logDir)) {
-                    Directory.CreateDirectory(logDir);
-                }
-                _logFilePath = Path.Combine(logDir, "GOON.log");
-            } catch (Exception) {
-                // Fallback to temp if AppData fails
-                _logFilePath = Path.Combine(Path.GetTempPath(), "GOON_Fallback.log");
-            }
+            _logFilePath = AppPaths.LogFile;
         }
 
         /// <summary>

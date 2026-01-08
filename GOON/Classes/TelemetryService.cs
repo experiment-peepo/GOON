@@ -17,9 +17,7 @@ namespace GOON.Classes {
         private readonly object _lock = new object();
 
         public TelemetryService() {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            _telemetryPath = Path.Combine(appData, "GOON", "telemetry.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(_telemetryPath));
+            _telemetryPath = AppPaths.TelemetryFile;
             _data = LoadTelemetry();
         }
 

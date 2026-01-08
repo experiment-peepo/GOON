@@ -16,9 +16,7 @@ namespace GOON.Classes {
         private readonly object _lock = new object();
 
         public UrlCacheService() {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            _cachePath = Path.Combine(appData, "GOON", "urlcache.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(_cachePath));
+            _cachePath = AppPaths.CacheFile;
             _cache = LoadCache();
             CleanupExpired();
         }

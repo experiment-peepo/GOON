@@ -21,10 +21,10 @@ if (Test-Path "publish") {
 Write-Host "Building GOON project..." -ForegroundColor Yellow
 dotnet publish GOON\GOON.csproj `
     -c Release `
-    -p:Version=1.0.0 `
-    -p:InformationalVersion=1.0.0 `
-    -p:AssemblyVersion=1.0.0.0 `
-    -p:FileVersion=1.0.0.0 `
+    -p:Version=1.0.1 `
+    -p:InformationalVersion=1.0.1 `
+    -p:AssemblyVersion=1.0.1.0 `
+    -p:FileVersion=1.0.1.0 `
     -o publish
 
 if ($LASTEXITCODE -ne 0) {

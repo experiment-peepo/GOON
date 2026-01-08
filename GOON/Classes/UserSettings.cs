@@ -37,32 +37,21 @@ namespace GOON.Classes {
         public string LastExpandedSection { get; set; } = "IsPlaybackExpanded";
 
 
-        private static string _settingsPath;
         public static string SettingsFilePath {
-            get {
-                if (_settingsPath == null) {
-                    var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    var settingsDir = Path.Combine(appData, "GOON");
-                    if (!Directory.Exists(settingsDir)) {
-                        Directory.CreateDirectory(settingsDir);
-                    }
-                    _settingsPath = Path.Combine(settingsDir, "settings.json");
-                }
-                return _settingsPath;
-            }
-            internal set => _settingsPath = value;
+            get => AppPaths.SettingsFile;
+            internal set => throw new InvalidOperationException("Path is now managed by AppPaths");
         }
 
         public static UserSettings Load() {
             try {
-                // Migration Check 1: Old TrainMeX AppData to new GOON AppData
+                // Migration Check 1: Old TrainMeX AppData to new GOON data directory
                 var oldAppData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TrainMeX");
-                var newAppData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GOON");
+                var newDataDir = AppPaths.DataDirectory;
                 if (Directory.Exists(oldAppData) && !File.Exists(SettingsFilePath)) {
                     try {
                         Logger.Info("Migrating TrainMeX settings to GOON...");
                         foreach (var file in Directory.GetFiles(oldAppData)) {
-                            var destFile = Path.Combine(newAppData, Path.GetFileName(file));
+                            var destFile = Path.Combine(newDataDir, Path.GetFileName(file));
                             if (!File.Exists(destFile)) {
                                 File.Copy(file, destFile);
                             }
@@ -197,7 +186,7 @@ namespace GOON.Classes {
         // Light data (Position/Index) - Saved to settings.json continuously
         public PlaybackState LastPlaybackState { get; set; } = new PlaybackState();
 
-        public static string SessionFilePath => Path.Combine(Path.GetDirectoryName(SettingsFilePath), "session.json");
+        public static string SessionFilePath => AppPaths.SessionFile;
 
         public async System.Threading.Tasks.Task SaveSessionAsync() {
               try {
