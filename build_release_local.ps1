@@ -1,6 +1,6 @@
 param(
     [switch]$Update,
-    [switch]$NoIncrement
+    [switch]$Increment
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,7 +26,7 @@ $versionPattern = "(?<=<Version>)(.*?)(?=</Version>)"
 if ($content -match $versionPattern) {
     $currentVersionStr = $matches[0]
     
-    if (-not $NoIncrement) {
+    if ($Increment) {
         try {
             $version = [Version]$currentVersionStr
             $newVersion = [Version]::new($version.Major, $version.Minor, $version.Build + 1)
@@ -44,6 +44,7 @@ if ($content -match $versionPattern) {
     else {
         $newVersion = [Version]$currentVersionStr
         Write-Host "Using current version: $newVersion" -ForegroundColor Green
+        Write-Host "Tip: Use -Increment to bump the version number." -ForegroundColor DarkGray
     }
 }
 else {
