@@ -44,15 +44,14 @@ jobs:
           -c Release `
           -r win-x64 `
           --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:PublishSingleFile=false `
           -o publish-test
       
     - name: Verify executable exists
       run: |
         $exePath = Get-ChildItem "publish-test/GO*.exe" | Select-Object -First 1
         if (-not $exePath) {
-          Write-Error "GOØN.exe not found in publish-test directory"
+          Write-Error "GOON.exe not found in publish-test directory"
           exit 1
         }
         $fileSize = $exePath.Length

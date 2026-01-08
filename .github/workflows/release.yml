@@ -63,8 +63,7 @@ jobs:
           -c Release `
           -r win-x64 `
           --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:PublishSingleFile=false `
           -p:Version=${{ steps.git_version.outputs.version }} `
           -p:InformationalVersion=${{ steps.git_version.outputs.version }} `
           -p:AssemblyVersion=${{ steps.git_version.outputs.numeric_version }} `
@@ -94,7 +93,7 @@ jobs:
       run: |
         $exePath = Get-ChildItem "publish/GO*.exe" | Select-Object -First 1
         if (-not $exePath) {
-          Write-Error "GOØN.exe not found in publish directory"
+          Write-Error "GOON.exe not found in publish directory"
           exit 1
         }
         if (-not (Test-Path "publish/yt-dlp.exe")) {
@@ -110,29 +109,35 @@ jobs:
         Write-Host "Dependencies verified: yt-dlp.exe, ffmpeg.exe"
       shell: pwsh
       
+    - name: Create Zip Package
+      run: |
+        Compress-Archive -Path "publish/*" -DestinationPath "GOON.zip" -CompressionLevel Optimal
+      shell: pwsh
+
     - name: Create Release
       if: github.ref_type == 'tag'
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "publish/*"
+        artifacts: "GOON.zip"
         tag: ${{ github.ref_name }}
         name: ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta Release ' || 'Release ' }}${{ github.ref_name }}
         body: |
-          ## GOØN ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta ' || '' }}Release ${{ steps.git_version.outputs.version }}
+          ## GOON ${{ steps.git_version.outputs.is_prerelease == 'true' && 'Beta ' || '' }}Release ${{ steps.git_version.outputs.version }}
           
           ### Changes
-          ### Changes
-          - 🚀 **New Name**: Application is now **GOØN**.
+          - 🚀 **New Name**: Application is now **GOON**.
           - 🎨 **UI Polish**: Updated "Cyber Luxe" aesthetic with SVG icons and consistent styling.
-          - 🧹 **Clean Workspace**: Optimized project structure.
-          - 🏷️ **Version 1.0.0**: Initial Release.
+          - 🧹 **Clean Workspace**: Optimized project structure and fixed release build.
+          - 📦 **Zip Package**: Standard portable distribution including all dependencies.
           
           ### Installation
-          Download `GOØN.exe` from the assets below. The executable is portable and requires no installation.
+          1. Download `GOON.zip` from the assets below.
+          2. Extract the contents to a folder.
+          3. Run `GOON.exe`.
           
           ### System Requirements
           - Windows x64
-          - No .NET runtime required (self-contained)
+          - .NET 8 Runtime required (Framework-dependent build)
         draft: false
         prerelease: ${{ steps.git_version.outputs.is_prerelease == 'true' }}
         allowUpdates: true
