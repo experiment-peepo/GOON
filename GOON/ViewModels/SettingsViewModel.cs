@@ -136,7 +136,7 @@ namespace GOON.ViewModels {
         }
 
         private void ResetPositions(object obj) {
-            if (System.Windows.MessageBox.Show("Are you sure you want to clear all saved video positions? This cannot be undone.", "Reset Playback History", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Warning) == System.Windows.MessageBoxResult.Yes) {
+            if (Windows.ConfirmationDialog.Show("Are you sure you want to clear all saved video positions? This cannot be undone.", "Reset Playback History")) {
                 PlaybackPositionTracker.Instance.ClearAllPositions();
             }
         }

@@ -12,7 +12,7 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.0.2</Version>
+    <Version>1.0.0</Version>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
@@ -28,11 +28,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\Dependencies\yt-dlp.exe">
+    <Content Include="..\Dependencies\yt-dlp.exe" Condition="Exists('..\Dependencies\yt-dlp.exe')">
       <Link>yt-dlp.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\Dependencies\ffmpeg.exe">
+    <Content Include="..\Dependencies\ffmpeg.exe" Condition="Exists('..\Dependencies\ffmpeg.exe')">
       <Link>ffmpeg.exe</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
