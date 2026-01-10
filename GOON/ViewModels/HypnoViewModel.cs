@@ -26,6 +26,12 @@ namespace GOON.ViewModels {
         private int _recursionDepth = 0; // Track recursion depth to prevent stack overflow
         private const int MaxRecursionDepth = 50; // Maximum recursion depth before aborting
         
+        // Pre-buffering for instant playback
+        private readonly VideoDownloadService _downloadService = new VideoDownloadService();
+        private CancellationTokenSource _preBufferCts = null;
+        private string _preBufferedUrl = null; // The URL that was pre-buffered
+        private string _preBufferedPath = null; // The local cache path for pre-buffered video
+        
         private (TimeSpan position, long timestamp) _lastPositionRecord;
         public (TimeSpan position, long timestamp) LastPositionRecord {
             get => _lastPositionRecord;
@@ -86,6 +92,7 @@ namespace GOON.ViewModels {
         }
 
         public bool UseCoordinatedStart { get; set; } = false;
+        public string SyncGroupId { get; set; } = null;
         
         public bool IsShuffle {
             get => App.Settings?.VideoShuffle ?? true;
@@ -126,6 +133,8 @@ namespace GOON.ViewModels {
             }
         }
 
+        public int CurrentIndex => _currentPos;
+
         public void SetQueue(IEnumerable<VideoItem> files) {
             // Unsubscribe from current item's PropertyChanged event to prevent memory leaks
             // This must be done before changing the queue to ensure proper cleanup
@@ -153,8 +162,28 @@ namespace GOON.ViewModels {
             _fileFailureCounts.Clear();
             _consecutiveFailures = 0;
             
+            // Cancel any pending pre-buffer when queue changes
+            _preBufferCts?.Cancel();
+            _preBufferedUrl = null;
+            _preBufferedPath = null;
+            
             // Start playing the new queue
             PlayNext();
+        }
+
+        public void JumpToIndex(int index) {
+            if (_files == null || index < 0 || index >= _files.Length) return;
+            if (_currentPos == index) return;
+
+            Logger.Info($"Jumping to index {index} (requested for sync)");
+            
+            lock (_loadLock) {
+                _isLoading = false; // Reset loading state to allow the new jump
+                _recursionDepth = 0;
+            }
+
+            _currentPos = index;
+            LoadCurrentVideo();
         }
 
         private VideoItem _currentItem;
@@ -345,6 +374,21 @@ namespace GOON.ViewModels {
                         return;
                     }
                     Logger.Info($"LoadCurrentVideo: URL validation passed for: {path}");
+                    
+                    // Check if this URL is cached locally for instant playback
+                    var cachedPath = _downloadService.GetCachedFilePath(path);
+                    if (!string.IsNullOrEmpty(cachedPath)) {
+                        Logger.Info($"[PreBuffer] Using cached file: {Path.GetFileName(cachedPath)}");
+                        path = cachedPath;
+                        // Change item behavior to treat as local file now
+                        _currentItem = new VideoItem(cachedPath) {
+                            Title = _currentItem.Title,
+                            Opacity = _currentItem.Opacity,
+                            Volume = _currentItem.Volume,
+                            OriginalPageUrl = _currentItem.OriginalPageUrl
+                        };
+                        _currentItem.PropertyChanged += CurrentItem_PropertyChanged;
+                    }
                 } else {
                     // For local files, check if path is rooted
                     if (!Path.IsPathRooted(path)) {
@@ -521,6 +565,86 @@ namespace GOON.ViewModels {
                 // This ensures Play() is only called after MediaElement has processed the source
                 Play();
             }
+            
+            // Start pre-buffering the next video for instant playback
+            StartPreBuffer();
+        }
+        
+        /// <summary>
+        /// Starts pre-buffering the next video in the queue.
+        /// Prioritizes 1080p+ videos and uses partial downloading for faster startup.
+        /// </summary>
+        private void StartPreBuffer() {
+            // Cancel any existing pre-buffer operation
+            _preBufferCts?.Cancel();
+            _preBufferCts = new CancellationTokenSource();
+            var cancellationToken = _preBufferCts.Token;
+            
+            if (_files == null || _files.Length == 0) return;
+            
+            // Look ahead up to 3 videos and collect candidates for pre-buffering
+            var candidates = new System.Collections.Generic.List<(VideoItem item, int quality, int position)>();
+            for (int i = 1; i <= Math.Min(3, _files.Length); i++) {
+                int pos = (_currentPos + i) % _files.Length;
+                if (pos == _currentPos) continue; // Don't buffer current video
+                
+                var item = _files[pos];
+                if (item?.IsUrl == true) {
+                    var quality = QualitySelector.DetectQualityFromUrl(item.FilePath);
+                    candidates.Add((item, quality, pos));
+                }
+            }
+            
+            if (candidates.Count == 0) return;
+            
+            // Prioritize 1080p+ videos, otherwise take the next one
+            var highRes = candidates
+                .Where(c => c.quality >= 1080)
+                .OrderByDescending(c => c.quality)
+                .FirstOrDefault();
+            
+            VideoItem nextItem;
+            int detectedQuality;
+            
+            if (highRes.item != null) {
+                nextItem = highRes.item;
+                detectedQuality = highRes.quality;
+                Logger.Info($"[PreBuffer] Prioritizing high-res video: {detectedQuality}p - {nextItem.FileName}");
+            } else {
+                var first = candidates.First();
+                nextItem = first.item;
+                detectedQuality = first.quality;
+                Logger.Info($"[PreBuffer] No high-res found, buffering next: {(detectedQuality > 0 ? $"{detectedQuality}p" : "unknown")} - {nextItem.FileName}");
+            }
+            
+            var videoUrl = nextItem.FilePath;
+            
+            // Already cached (full or partial)?
+            var cachedPath = _downloadService.GetCachedFilePath(videoUrl);
+            if (!string.IsNullOrEmpty(cachedPath)) {
+                _preBufferedUrl = videoUrl;
+                _preBufferedPath = cachedPath;
+                Logger.Info($"[PreBuffer] Already cached: {Path.GetFileName(cachedPath)}");
+                return;
+            }
+            
+            // Start background partial download for faster startup
+            Logger.Info($"[PreBuffer] Starting partial download for: {nextItem.FileName}");
+            _ = Task.Run(async () => {
+                try {
+                    // Use partial download - 150MB is enough for smooth playback start
+                    var localPath = await _downloadService.DownloadPartialAsync(videoUrl, 150 * 1024 * 1024, cancellationToken);
+                    if (!string.IsNullOrEmpty(localPath) && !cancellationToken.IsCancellationRequested) {
+                        _preBufferedUrl = videoUrl;
+                        _preBufferedPath = localPath;
+                        Logger.Info($"[PreBuffer] Completed: {Path.GetFileName(localPath)}");
+                    }
+                } catch (OperationCanceledException) {
+                    Logger.Info("[PreBuffer] Cancelled");
+                } catch (Exception ex) {
+                    Logger.Warning($"[PreBuffer] Failed: {ex.Message}");
+                }
+            }, cancellationToken);
         }
 
         public void OnMediaFailed(Exception ex) {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 
 namespace GOON.Classes {
@@ -68,35 +69,70 @@ namespace GOON.Classes {
         /// Extracts all video source URLs from HTML and returns them sorted by quality
         /// </summary>
         public static List<VideoQuality> ExtractAllVideoSources(string html, string baseUrl = null) {
-            if (string.IsNullOrEmpty(html)) return new List<VideoQuality>();
-
             var qualities = new List<VideoQuality>();
-
+            if (string.IsNullOrEmpty(html)) return qualities;
+            
             try {
                 var doc = new HtmlDocument();
                 doc.LoadHtml(html);
                 
-                // Extract from <source> tags
-                var sourceNodes = doc.DocumentNode.SelectNodes("//video//source[@type='video/mp4']");
+                // 1. Try standard <video><source> tags
+                var sourceNodes = doc.DocumentNode.SelectNodes("//video//source");
                 if (sourceNodes != null) {
                     foreach (var source in sourceNodes) {
-                        var url = source.GetAttributeValue("src", null);
-                        if (!string.IsNullOrEmpty(url)) {
-                            var quality = QualitySelector.DetectQualityFromUrl(url);
-                            if (quality > 0) {
-                                qualities.Add(new VideoQuality(quality, url));
-                            }
-                        }
+                        var url = source.GetAttributeValue("src", "");
+                        if (string.IsNullOrEmpty(url)) continue;
+                        
+                        url = ResolveUrl(url, baseUrl);
+                        
+                        // Priority 1: Check URL for quality
+                        var quality = QualitySelector.DetectQualityFromUrl(url);
+                        
+                        // Priority 2: Check attributes commonly used for quality
+                        if (quality <= 0) {
+                             var label = source.GetAttributeValue("label", "");
+                             var title = source.GetAttributeValue("title", "");
+                             var res = source.GetAttributeValue("res", "");
+                             var dataRes = source.GetAttributeValue("data-res", "");
+                             var sizes = source.GetAttributeValue("sizes", "");
+                             var size = source.GetAttributeValue("size", "");
+                             
+                             quality = QualitySelector.DetectQualityFromString(label);
+                             if (quality <= 0) quality = QualitySelector.DetectQualityFromString(title);
+                             if (quality <= 0) quality = QualitySelector.DetectQualityFromString(res);
+                             if (quality <= 0) quality = QualitySelector.DetectQualityFromString(dataRes);
+                             if (quality <= 0) quality = QualitySelector.DetectQualityFromString(sizes);
+                             if (quality <= 0) quality = QualitySelector.DetectQualityFromString(size);
+                         }
+                        
+                         // Include everything
+                        var detectedQuality = quality > 0 ? quality : 1;
+                        Logger.Info($"[Extractor] Found <source> tag: {detectedQuality}p -> {url}");
+                        qualities.Add(new VideoQuality(detectedQuality, url));
                     }
                 }
 
-                // Extract from <video> src attribute
+                // 2. Try extracting from JSON sources in scripts
+                var jsonSources = ExtractSourcesFromJson(html, baseUrl);
+                foreach (var jsSource in jsonSources) {
+                    if (!qualities.Any(q => q.Url == jsSource.Url)) {
+                        Logger.Info($"[Extractor] Found JSON source: {jsSource.Height}p -> {jsSource.Url}");
+                        qualities.Add(jsSource);
+                    }
+                }
+                
+                // 3. Extract from <video> src attribute (as fallback)
                 var videoNode = doc.DocumentNode.SelectSingleNode("//video[@src]");
                 if (videoNode != null) {
                     var url = videoNode.GetAttributeValue("src", null);
                     if (!string.IsNullOrEmpty(url)) {
-                        var quality = QualitySelector.DetectQualityFromUrl(url);
-                        qualities.Add(new VideoQuality(quality > 0 ? quality : 720, url));
+                        url = ResolveUrl(url, baseUrl);
+                        if (!qualities.Any(q => q.Url == url)) {
+                            var quality = QualitySelector.DetectQualityFromUrl(url);
+                            var detectedQuality = quality > 0 ? quality : 720;
+                            Logger.Info($"[Extractor] Found fallback <video src>: {detectedQuality}p -> {url}");
+                            qualities.Add(new VideoQuality(detectedQuality, url));
+                        }
                     }
                 }
 
@@ -105,6 +141,54 @@ namespace GOON.Classes {
             }
 
             return qualities.OrderByDescending(q => q.Height).ToList();
+        }
+
+        private static List<VideoQuality> ExtractSourcesFromJson(string html, string baseUrl) {
+            var sources = new List<VideoQuality>();
+            if (string.IsNullOrWhiteSpace(html)) return sources;
+
+            // Pattern for common JSON video source structures
+            var jsonPatterns = new[] {
+                @"\{[^}]*?src\s*:\s*['""]([^'""]+)['""][^}]*?size\s*:\s*(\d+)[^}]*?\}",
+                @"\{[^}]*?size\s*:\s*(\d+)[^}]*?src\s*:\s*['""]([^'""]+)['""][^}]*?\}",
+                @"[""']?label[""']?\s*:\s*[""'](\d+)[pP]?[""'][^}]*?[""']?src[""']?\s*:\s*[""']([^""']+)[""']",
+                @"\\?[""']?src\\?[""']?\s*:\s*\\?[""']([^\\""']+\.mp4[^\\""']*)(\\?[""'])[^}]*?\\?[""']?size\\?[""']?\s*:\s*(\d+)",
+                @"\s*[""']?(\d+)[pP]?[""']?\s*:\s*[""']([^""']+)[""']" // Simple "720": "url" map
+            };
+
+            foreach (var pattern in jsonPatterns) {
+                var matches = Regex.Matches(html, pattern, RegexOptions.IgnoreCase);
+                foreach (Match match in matches) {
+                    if (match.Success && match.Groups.Count >= 3) {
+                        try {
+                            string url, label;
+                            
+                            if (int.TryParse(match.Groups[2].Value, out int q2)) {
+                                url = match.Groups[1].Value.Replace("\\/", "/");
+                                label = match.Groups[2].Value;
+                            } else if (int.TryParse(match.Groups[1].Value, out int q1)) {
+                                label = match.Groups[1].Value;
+                                url = match.Groups[2].Value.Replace("\\/", "/");
+                            } else if (match.Groups.Count >= 4 && int.TryParse(match.Groups[3].Value, out int q3)) { 
+                                url = match.Groups[1].Value.Replace("\\/", "/");
+                                label = match.Groups[3].Value;
+                            } else {
+                                continue;
+                            }
+
+                            if (!string.IsNullOrEmpty(url) && (url.Contains(".mp4") || url.Contains(".webm"))) {
+                                var resolvedUrl = ResolveUrl(url, baseUrl);
+                                var quality = QualitySelector.DetectQualityFromString(label);
+                                if (quality > 0) {
+                                    sources.Add(new VideoQuality(resolvedUrl, quality, $"{label}p"));
+                                }
+                            }
+                        } catch { }
+                    }
+                }
+            }
+
+            return sources;
         }
 
         /// <summary>
@@ -142,13 +226,10 @@ namespace GOON.Classes {
                 
                 var node = doc.DocumentNode.SelectSingleNode(xpath);
                 if (node != null) {
-                    // Try to get attribute value first (for @content, @src, etc.)
                     if (xpath.Contains("/@")) {
                         var attrName = xpath.Substring(xpath.LastIndexOf("/@") + 2);
                         return node.GetAttributeValue(attrName, null);
                     }
-                    
-                    // Otherwise return inner text
                     return node.InnerText?.Trim();
                 }
             } catch (Exception ex) {
@@ -156,6 +237,24 @@ namespace GOON.Classes {
             }
 
             return null;
+        }
+
+        private static string ResolveUrl(string url, string baseUrl) {
+            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(baseUrl)) return url;
+            if (url.StartsWith("http") || url.StartsWith("//")) {
+                if (url.StartsWith("//")) {
+                    var baseUri = new Uri(baseUrl);
+                    return baseUri.Scheme + ":" + url;
+                }
+                return url;
+            }
+            try {
+                var baseUri = new Uri(baseUrl);
+                var absoluteUri = new Uri(baseUri, url);
+                return absoluteUri.ToString();
+            } catch {
+                return url;
+            }
         }
     }
 }

@@ -304,6 +304,8 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
  
                             <!-- Remember Last Playlist -->
@@ -339,6 +341,36 @@
                                     <TextBlock Text="Reset All Saved Positions" VerticalAlignment="Center" FontWeight="SemiBold"/>
                                 </StackPanel>
                             </Button>
+                        </Grid>
+                    </Expander>
+
+                    <!-- Cookies Section - Positioned between Session & History and Hotkeys -->
+                    <Expander Header="Cookies" Style="{StaticResource SettingsExpanderStyle}" IsExpanded="{Binding IsCookiesExpanded}">
+                        <Grid>
+                            <!-- Hypnotube Cookies -->
+                            <StackPanel Margin="0,5,0,10">
+                                <Label Content="Hypnotube Session Cookies" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
+                                <TextBlock Text="Format: PHPSESSID=xxx; other=yyy" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding HypnotubeCookies, UpdateSourceTrigger=PropertyChanged}"
+                                             Height="32"
+                                             Padding="8,6"
+                                             Background="#2A2A3E"
+                                             Foreground="{StaticResource TextPrimary}"
+                                             BorderBrush="{StaticResource AccentPrimary}"
+                                             BorderThickness="1"
+                                             VerticalContentAlignment="Center"/>
+                                    <Button Grid.Column="1" 
+                                             Command="{Binding PasteHypnoCookiesCommand}"
+                                             Style="{StaticResource SecondaryButtonStyle}"
+                                             Height="32" Padding="12,0" Margin="8,0,0,0"
+                                             Content="Paste" FontWeight="SemiBold"/>
+                                </Grid>
+                            </StackPanel>
                         </Grid>
                     </Expander>
 

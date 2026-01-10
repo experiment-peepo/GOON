@@ -13,6 +13,8 @@ namespace GOON.Classes {
         public double DefaultOpacity { get; set; } = 0.9;
         public double DefaultVolume { get; set; } = 0.5;
         public string DefaultMonitorDeviceName { get; set; } = null;
+        public string HypnotubeCookies { get; set; } = null;
+        
         
         // Panic hotkey configuration
         // Modifiers: Ctrl=2, Shift=4, Alt=1 (can be combined with bitwise OR)
@@ -32,6 +34,9 @@ namespace GOON.Classes {
         public int HotScreenOffsetX { get; set; } = 0;
         public int HotScreenOffsetY { get; set; } = 0;
         public bool HotScreenUseClientArea { get; set; } = true;
+
+        // Playlist Import Settings
+        public int MaxPlaylistPages { get; set; } = 100; // Maximum pages to fetch for paginated playlists
 
         // UI State
         public string LastExpandedSection { get; set; } = "IsPlaybackExpanded";

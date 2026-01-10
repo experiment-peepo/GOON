@@ -57,6 +57,31 @@ namespace GOON.Classes {
                 .Where(p => p.ViewModel?.CurrentSource != null)
                 .GroupBy(p => p.ViewModel.CurrentSource.ToString());
 
+            // --- 0. Coordinated Group Index Sync ---
+            // Ensure all players with the same SyncGroupId are playing the same video index.
+            // This fixes divergence when Shuffle is on for "All Monitors" mode.
+            var coordinatedGroups = playersSnapshot
+                .Where(p => !string.IsNullOrEmpty(p.ViewModel.SyncGroupId))
+                .GroupBy(p => p.ViewModel.SyncGroupId);
+
+            foreach (var coordinatedGroup in coordinatedGroups) {
+                var playerList = coordinatedGroup.ToList();
+                if (playerList.Count <= 1) continue;
+
+                var master = playerList[0];
+                int masterIndex = master.ViewModel.CurrentIndex;
+                
+                // Only sync if the master has actually picked a valid video index
+                if (masterIndex >= 0) {
+                    foreach (var follower in playerList.Skip(1)) {
+                        if (follower.ViewModel.CurrentIndex != masterIndex) {
+                            Logger.Info($"[Sync] Coordinated player at {follower.ScreenDeviceName} diverged in group '{coordinatedGroup.Key}' (Index {follower.ViewModel.CurrentIndex} vs Master {masterIndex}). Correcting.");
+                            follower.ViewModel.JumpToIndex(masterIndex);
+                        }
+                    }
+                }
+            }
+
             foreach (var group in groups) {
                 var playerList = group.ToList();
                 if (playerList.Count == 0) continue;
@@ -330,6 +355,8 @@ namespace GOON.Classes {
             if (assignments == null) return;
             var allScreens = Screen.AllScreens;
             
+            int sharedCoordinatedIndex = -1;
+            
             foreach (var kvp in assignments) {
                 var sv = kvp.Key;
                 
@@ -354,9 +381,23 @@ namespace GOON.Classes {
                 // Enable Coordinated Start to prevent desync on startup
                 // All players will pause at 0 and wait for the MasterSyncTimer to trigger them together
                 w.ViewModel.UseCoordinatedStart = true;
+                if (showGroupControl) {
+                    w.ViewModel.SyncGroupId = "AllMonitors";
+                }
 
                 w.ViewModel.SetQueue(queue);
                 
+                // --- Synchronized Start for Coordinated Groups ---
+                if (!string.IsNullOrEmpty(w.ViewModel.SyncGroupId)) {
+                    if (sharedCoordinatedIndex == -1) {
+                        // First player in the group picks the random starting point
+                        sharedCoordinatedIndex = w.ViewModel.CurrentIndex;
+                    } else {
+                        // Subsequent players follow the first one immediately
+                        w.ViewModel.JumpToIndex(sharedCoordinatedIndex);
+                    }
+                }
+
                 // Apply Restore State if available
                 if (resumeState != null) {
                     w.ViewModel.RestoreState(resumeState.CurrentIndex, resumeState.PositionTicks);

@@ -18,10 +18,11 @@ namespace GOON.Classes {
         /// Supported video URL domains
         /// </summary>
         public static readonly string[] SupportedVideoDomains = {
+            // Video sites with specialized extractors
             "rule34video.com",
             "pmvhaven.com",
-            "iwara.tv",
-            "hypnotube.com"
+            "hypnotube.com",
+            "redgifs.com"
         };
 
         /// <summary>

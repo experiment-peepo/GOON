@@ -1,7 +1,7 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.Versioning;
-using System.Windows.Forms;
 using System.Windows.Input;
 using GOON.Classes;
 using System.IO;
@@ -30,6 +30,37 @@ namespace GOON.ViewModels {
         private bool _isApplicationExpanded;
         private bool _isHotkeysExpanded;
         private bool _isHistoryExpanded;
+
+        private bool _isCookiesExpanded;
+        private string _hypnotubeCookies;
+
+        public bool IsCookiesExpanded {
+            get => _isCookiesExpanded;
+            set {
+                if (SetProperty(ref _isCookiesExpanded, value) && value) {
+                    CollapseOthers(nameof(IsCookiesExpanded));
+                    App.Settings.LastExpandedSection = nameof(IsCookiesExpanded);
+                }
+            }
+        }
+
+        public string HypnotubeCookies {
+            get => _hypnotubeCookies;
+            set => SetProperty(ref _hypnotubeCookies, CleanCookieString(value));
+        }
+
+
+        private string CleanCookieString(string value) {
+            if (string.IsNullOrWhiteSpace(value)) return value;
+            
+            var cleaned = value.Trim();
+            // Strip "Cookie: " prefix if user copied it from DevTools headers
+            if (cleaned.StartsWith("Cookie:", StringComparison.OrdinalIgnoreCase)) {
+                cleaned = cleaned.Substring(7).Trim();
+            }
+            
+            return cleaned;
+        }
 
         public bool IsPlaybackExpanded {
             get => _isPlaybackExpanded;
@@ -76,6 +107,7 @@ namespace GOON.ViewModels {
             if (current != nameof(IsApplicationExpanded)) IsApplicationExpanded = false;
             if (current != nameof(IsHotkeysExpanded)) IsHotkeysExpanded = false;
             if (current != nameof(IsHistoryExpanded)) IsHistoryExpanded = false;
+            if (current != nameof(IsCookiesExpanded)) IsCookiesExpanded = false;
         }
 
         // Taboo Settings
@@ -105,6 +137,7 @@ namespace GOON.ViewModels {
 
             _rememberLastPlaylist = settings.RememberLastPlaylist;
             _rememberFilePosition = settings.RememberFilePosition;
+            _hypnotubeCookies = settings.HypnotubeCookies;
 
             // Load and set the last expanded section
             var lastSection = settings.LastExpandedSection ?? nameof(IsPlaybackExpanded);
@@ -112,10 +145,11 @@ namespace GOON.ViewModels {
             _isApplicationExpanded = lastSection == nameof(IsApplicationExpanded);
             _isHotkeysExpanded = lastSection == nameof(IsHotkeysExpanded);
             _isHistoryExpanded = lastSection == nameof(IsHistoryExpanded);
+            _isCookiesExpanded = lastSection == nameof(IsCookiesExpanded);
 
-            // Ensure at least one is expanded if the loaded value was invalid
-            if (!_isPlaybackExpanded && !_isApplicationExpanded && !_isHotkeysExpanded && !_isHistoryExpanded) {
-                _isPlaybackExpanded = true;
+            // Ensure at least one is expanded if the loaded value was invalid or it's the new Cookies section
+            if (!_isPlaybackExpanded && !_isApplicationExpanded && !_isHotkeysExpanded && !_isHistoryExpanded && !_isCookiesExpanded) {
+                _isCookiesExpanded = true;
             }
 
 
@@ -133,6 +167,19 @@ namespace GOON.ViewModels {
             CancelCommand = new RelayCommand(Cancel);
             OpenKoFiCommand = new RelayCommand(OpenKoFi);
             ResetPositionsCommand = new RelayCommand(ResetPositions);
+            CopyCookieScriptCommand = new RelayCommand(CopyCookieScript);
+            PasteHypnoCookiesCommand = new RelayCommand(o => HypnotubeCookies = System.Windows.Clipboard.GetText());
+        }
+
+        private void CopyCookieScript(object obj) {
+            try {
+                // Netscape/Header format helper
+                // Netscape/Header format helper - captures cookies and localStorage tokens
+                string script = "(function(){copy(document.cookie);alert('Goon Cookie Helper:\\nCookies copied to clipboard!\\n\\nNow return to GOON and click Paste.');})();";
+                System.Windows.Clipboard.SetText(script);
+            } catch (Exception ex) {
+                Logger.Error("Failed to copy cookie script to clipboard", ex);
+            }
         }
 
         private void ResetPositions(object obj) {
@@ -263,6 +310,8 @@ namespace GOON.ViewModels {
         public ICommand CancelCommand { get; }
         public ICommand OpenKoFiCommand { get; }
         public ICommand ResetPositionsCommand { get; }
+        public ICommand CopyCookieScriptCommand { get; }
+        public ICommand PasteHypnoCookiesCommand { get; }
 
         public event System.EventHandler RequestClose;
 
@@ -292,12 +341,14 @@ namespace GOON.ViewModels {
 
             settings.RememberLastPlaylist = RememberLastPlaylist;
             settings.RememberFilePosition = RememberFilePosition;
+            settings.HypnotubeCookies = HypnotubeCookies;
             
             // Save currently expanded section
             if (IsPlaybackExpanded) settings.LastExpandedSection = nameof(IsPlaybackExpanded);
             else if (IsApplicationExpanded) settings.LastExpandedSection = nameof(IsApplicationExpanded);
             else if (IsHotkeysExpanded) settings.LastExpandedSection = nameof(IsHotkeysExpanded);
             else if (IsHistoryExpanded) settings.LastExpandedSection = nameof(IsHistoryExpanded);
+            else if (IsCookiesExpanded) settings.LastExpandedSection = nameof(IsCookiesExpanded);
             
             settings.Save();
 

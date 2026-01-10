@@ -14,5 +14,9 @@ namespace GOON.Classes {
         /// Optional title extracted from video page. If null or empty, VideoItem will use URL-based name extraction.
         /// </summary>
         public string Title { get; set; }
+        /// <summary>
+        /// The original page URL with full path (including slug). Used for re-extraction when video URLs expire.
+        /// </summary>
+        public string OriginalPageUrl { get; set; }
     }
 }

@@ -86,6 +86,16 @@ namespace GOON {
             ServiceContainer.Register(new TelemetryService());
             ServiceContainer.Register(new YtDlpService());
 
+            // Cleanup old cached videos (10+ days old) in background
+            System.Threading.Tasks.Task.Run(() => {
+                try {
+                    var downloadService = new VideoDownloadService();
+                    downloadService.CleanupOldFiles(10);
+                } catch (Exception ex) {
+                    Logger.Warning($"Failed to cleanup video cache: {ex.Message}");
+                }
+            });
+
             // base.OnStartup starts the UI - call LAST
             base.OnStartup(e);
         }

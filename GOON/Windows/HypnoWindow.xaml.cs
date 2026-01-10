@@ -267,8 +267,13 @@ namespace GOON.Windows {
 
                         FirstVideo.Stop();
                         FirstVideo.Close();
+                        
+                        // Phase 5 Optimization: Explicitly null the Source to release Media Foundation handles
+                        // This ensures all unmanaged resources are freed, preventing memory leaks
+                        FirstVideo.Source = null;
+                        
                         FirstVideo = null;
-                        Logger.Info("[HypnoWindow] MediaElement stopped and closed");
+                        Logger.Info("[HypnoWindow] MediaElement stopped, closed, and source cleared");
                     }
                 }
                 _disposed = true;
@@ -432,6 +437,20 @@ namespace GOON.Windows {
                 
                 IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
                 
+                // --- HARDWARE DIAGNOSTICS ---
+                int renderingTier = (RenderCapability.Tier >> 16);
+                Logger.Info($"[Hardware] Rendering Tier: {renderingTier} (Tier 2 = Full Hardware Acceleration)");
+                if (renderingTier < 2) {
+                    Logger.Warning("[Hardware] WPF is in software rendering mode. This will cause 4K stutter.");
+                }
+
+                // Force Hardware Rendering if possible (ensure not SoftWare only)
+                var source = HwndSource.FromHwnd(hwnd);
+                if (source != null && source.CompositionTarget != null) {
+                    source.CompositionTarget.RenderMode = RenderMode.Default;
+                }
+                // ---------------------------
+
                 // 1. Transparency
                 int extendedStyle = WindowServices.GetWindowLong(hwnd, WindowServices.GWL_EXSTYLE);
                 WindowServices.SetWindowLong(hwnd, WindowServices.GWL_EXSTYLE, extendedStyle | WindowServices.WS_EX_TRANSPARENT);

@@ -18,6 +18,16 @@ namespace GOON.Classes {
             Width = width;
             Filesize = filesize;
         }
+
+        /// <summary>
+        /// Overloaded constructor for (url, height, label) pattern used in StashPatternExtractor
+        /// </summary>
+        public VideoQuality(string url, int height, string label = null) {
+            Url = url;
+            Height = height;
+            Width = 0;
+            Filesize = 0;
+        }
     }
 
     /// <summary>
@@ -31,29 +41,57 @@ namespace GOON.Classes {
         public static VideoQuality SelectBest(List<VideoQuality> qualities) {
             if (qualities == null || !qualities.Any()) return null;
             
-            return qualities
+            var best = qualities
                 .Where(q => !string.IsNullOrEmpty(q.Url))
                 .OrderByDescending(q => q.Height)
                 .ThenByDescending(q => q.Filesize)
                 .FirstOrDefault();
+
+            if (best != null) {
+                Logger.Info($"[QualitySelector] Selected best: {best.Height}p (from {qualities.Count} options)");
+            }
+
+            return best;
         }
 
         /// <summary>
-        /// Detects quality/resolution from URL patterns
+        /// Detects quality/resolution from URL patterns or other strings
         /// </summary>
         public static int DetectQualityFromUrl(string url) {
-            if (string.IsNullOrEmpty(url)) return 0;
+            return DetectQualityFromString(url);
+        }
+
+        /// <summary>
+        /// Detects quality/resolution from any string containing resolution markers (e.g. "720p", "1080", "HD")
+        /// </summary>
+        public static int DetectQualityFromString(string text) {
+            if (string.IsNullOrEmpty(text)) return 0;
             
-            var urlLower = url.ToLowerInvariant();
+            var lower = text.Trim().ToLowerInvariant();
             
-            // Check for explicit quality markers
-            if (urlLower.Contains("2160p") || urlLower.Contains("_2160") || urlLower.Contains("4k")) return 2160;
-            if (urlLower.Contains("1440p") || urlLower.Contains("_1440") || urlLower.Contains("2k")) return 1440;
-            if (urlLower.Contains("1080p") || urlLower.Contains("_1080") || urlLower.Contains("fhd")) return 1080;
-            if (urlLower.Contains("720p") || urlLower.Contains("_720") || urlLower.Contains("hd")) return 720;
-            if (urlLower.Contains("480p") || urlLower.Contains("_480") || urlLower.Contains("sd")) return 480;
-            if (urlLower.Contains("360p") || urlLower.Contains("_360")) return 360;
-            if (urlLower.Contains("240p") || urlLower.Contains("_240")) return 240;
+            // Check for explicit numeric quality markers first (highest priority)
+            if (lower.Contains("2160p") || lower.Contains("_2160") || lower == "2160") return 2160;
+            if (lower.Contains("1440p") || lower.Contains("_1440") || lower == "1440") return 1440;
+            if (lower.Contains("1080p") || lower.Contains("_1080") || lower == "1080") return 1080;
+            if (lower.Contains("720p") || lower.Contains("_720") || lower == "720") return 720;
+            if (lower.Contains("480p") || lower.Contains("_480") || lower == "480") return 480;
+            if (lower.Contains("360p") || lower.Contains("_360") || lower == "360") return 360;
+            if (lower.Contains("240p") || lower.Contains("_240") || lower == "240") return 240;
+            if (lower.Contains("144p") || lower.Contains("_144") || lower == "144") return 144;
+            
+            // Check for named quality markers (second priority)
+            if (lower.Contains("4k") || lower.Contains("uhd") || lower.Contains("ultra hd")) return 2160;
+            if (lower.Contains("2k") || lower.Contains("qhd") || lower.Contains("quad hd")) return 1440;
+            if (lower.Contains("fullhd") || lower.Contains("full hd") || lower.Contains("fhd")) return 1080;
+            if (lower.Contains("hd") && !lower.Contains("sd")) return 720; // hd alone defaults to 720p
+            if (lower.Contains("sd")) return 480;
+            
+            // Try parsing as raw number as a last resort
+            if (int.TryParse(lower, out int res)) {
+                if (new[] { 144, 240, 360, 480, 720, 1080, 1440, 2160, 4320 }.Contains(res)) {
+                    return res;
+                }
+            }
             
             return 0; // Unknown quality
         }
@@ -73,12 +111,7 @@ namespace GOON.Classes {
             if (nameLower.Contains("video_url")) return 360;
             
             // Generic patterns
-            if (nameLower.Contains("1080") || nameLower.Contains("fhd")) return 1080;
-            if (nameLower.Contains("720") || nameLower.Contains("hd")) return 720;
-            if (nameLower.Contains("480") || nameLower.Contains("sd")) return 480;
-            if (nameLower.Contains("360")) return 360;
-            
-            return 0;
+            return DetectQualityFromString(nameLower);
         }
     }
 }

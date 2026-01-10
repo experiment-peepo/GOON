@@ -43,15 +43,36 @@ namespace GOON.Classes {
                 }
 
                 Logger.Info($"Fetching HTML from: {url}");
-                var response = await _httpClient.GetAsync(url, cancellationToken);
-                response.EnsureSuccessStatusCode();
-                var html = await response.Content.ReadAsStringAsync();
-                Logger.Info($"Fetched {html.Length} characters from {url}");
                 
-                // Cache the result
-                _htmlCache.Set(url, html);
-                
-                return html;
+                using (var request = new HttpRequestMessage(HttpMethod.Get, url)) {
+                    // Add Hypnotube cookies if applicable
+                    // Add Hypnotube cookies if applicable
+                    if (url.Contains("hypnotube.com") && App.Settings != null && !string.IsNullOrEmpty(App.Settings.HypnotubeCookies)) {
+                        var cookies = App.Settings.HypnotubeCookies.Trim();
+                        if (cookies.Contains("=")) {
+                            request.Headers.TryAddWithoutValidation("Cookie", cookies);
+                            Logger.Info($"[Hypnotube] Applied session cookies for request to {url}");
+                        }
+                    }
+
+
+                    var response = await _httpClient.SendAsync(request, cancellationToken);
+                    response.EnsureSuccessStatusCode();
+                    var html = await response.Content.ReadAsStringAsync();
+                    Logger.Info($"Fetched {html.Length} characters from {url}");
+                    
+                    // Log Hypnotube authentication status
+                    if (url.Contains("hypnotube.com") && !string.IsNullOrEmpty(App.Settings?.HypnotubeCookies)) {
+                        // Check for indicators of authenticated session (e.g., logout link, user profile)
+                        var isAuthenticated = html.Contains("logout") || html.Contains("my_profile") || html.Contains("user-menu");
+                        Logger.Info($"[Hypnotube] Authentication status: {(isAuthenticated ? "Authenticated" : "Guest/Unauthenticated")}");
+                    }
+                    
+                    // Cache the result
+                    _htmlCache.Set(url, html);
+                    
+                    return html;
+                }
             } catch (HttpRequestException ex) {
                 Logger.Error($"HTTP error fetching {url}: {ex.Message}");
                 return null;
@@ -67,10 +88,23 @@ namespace GOON.Classes {
         public async Task<string> ResolveRedirectUrlAsync(string url, string referer = null, CancellationToken cancellationToken = default) {
             try {
                 Logger.Info($"Resolving redirect for: {url}");
-                using (var request = new HttpRequestMessage(HttpMethod.Head, url)) {
+                
+                // Use GET instead of HEAD - some servers (including Rule34Video) only redirect on GET
+                using (var request = new HttpRequestMessage(HttpMethod.Get, url)) {
+                    // Add Referer header - critical for Rule34Video which requires it
                     if (!string.IsNullOrEmpty(referer)) {
                         request.Headers.Referrer = new Uri(referer);
+                    } else if (url.Contains("rule34video.com")) {
+                        // Rule34Video requires Referer header for redirects to work
+                        request.Headers.Referrer = new Uri("https://rule34video.com/");
                     }
+                    
+                    // Add Hypnotube cookies if applicable
+                    if (url.Contains("hypnotube.com") && App.Settings != null && !string.IsNullOrEmpty(App.Settings.HypnotubeCookies)) {
+                        request.Headers.TryAddWithoutValidation("Cookie", App.Settings.HypnotubeCookies);
+                        Logger.Info("Adding session cookies for Hypnotube redirect resolution");
+                    }
+
                     
                     // We need to execute the request but handle redirects manually? 
                     // Actually HttpClient follows redirects by default.

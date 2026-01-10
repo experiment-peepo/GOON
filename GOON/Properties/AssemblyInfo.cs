@@ -20,14 +20,8 @@ using System.Windows;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("GOON")]
-[assembly: AssemblyDescription("An overlay video player for sissies")]
-[assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("GOON")]
-// [assembly: AssemblyCopyright("Copyright ©  2021")]
-// [assembly: AssemblyTrademark("")]
-// [assembly: AssemblyCulture("")]
+// Redundant attributes removed - now generated from .csproj
+// Title, Description, Company, Product, Version, FileVersion
 
 
 // Setting ComVisible to false makes the types in this assembly not visible
@@ -55,15 +49,5 @@ using System.Windows;
 )]
 
 
-// Version information for an assembly consists of the following four values:
-//
-//      Major Version
-//      Minor Version
-//      Build Number
-//      Revision
-//
-// You can specify all the values or you can default the Build and Revision Numbers
-// by using the '*' as shown below:
-[assembly: AssemblyVersion("1.0.2.0")]
-[assembly: AssemblyFileVersion("1.0.2.0")]
+// AssemblyVersion is now handled via .csproj and build pipeline
 

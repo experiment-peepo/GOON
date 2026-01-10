@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
+using HtmlAgilityPack;
 using GOON.ViewModels;
 
 namespace GOON.Classes {
@@ -48,8 +50,6 @@ namespace GOON.Classes {
 
                 if (host.Contains("hypnotube.com")) {
                     videoPageUrls = await ExtractHypnotubePlaylistAsync(playlistUrl, cancellationToken);
-                } else if (host.Contains("iwara.tv")) {
-                    videoPageUrls = await ExtractIwaraPlaylistAsync(playlistUrl, cancellationToken);
                 } else if (host.Contains("rule34video.com")) {
                     videoPageUrls = await ExtractRule34VideoPlaylistAsync(playlistUrl, cancellationToken);
                 } else if (host.Contains("pmvhaven.com")) {
@@ -92,7 +92,8 @@ namespace GOON.Classes {
                         
                         // Create video item
                         var videoItem = new VideoItem(videoUrl) {
-                            Title = title
+                            Title = title,
+                            OriginalPageUrl = pageUrl  // Store for re-extraction when URLs expire
                         };
                         
                         // Validate the video item
@@ -120,28 +121,61 @@ namespace GOON.Classes {
         }
 
         private async Task<List<string>> ExtractHypnotubePlaylistAsync(string url, CancellationToken cancellationToken) {
+            var allVideoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            
             try {
-                var html = await FetchHtmlAsync(url, cancellationToken);
-                if (string.IsNullOrWhiteSpace(html)) return new List<string>();
+                // Start with first page
+                var currentUrl = url;
+                var visitedPages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var pageUrlsToFetch = new Queue<string>();
+                pageUrlsToFetch.Enqueue(currentUrl);
+                
+                var maxPages = App.Settings?.MaxPlaylistPages ?? 100;
+                int pagesFetched = 0;
 
-                return ExtractHypnotubeLinksFromHtml(html, url);
+                // If this is a single video page, don't treat it as a playlist
+                if (IsHypnotubeVideoPageUrl(url)) {
+                    Logger.Info($"[Hypnotube] Recognized input as single video page, skipping playlist extraction: {url}");
+                    return new List<string> { url };
+                }
+                
+                while (pageUrlsToFetch.Count > 0 && pagesFetched < maxPages) {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    
+                    currentUrl = pageUrlsToFetch.Dequeue();
+                    if (visitedPages.Contains(currentUrl)) continue;
+                    visitedPages.Add(currentUrl);
+                    pagesFetched++;
+                    
+                    var html = await FetchHtmlAsync(currentUrl, cancellationToken);
+                    if (string.IsNullOrWhiteSpace(html)) continue;
+                    
+                    // Extract video URLs from current page
+                    var pageVideoUrls = ExtractHypnotubeLinksFromHtml(html, currentUrl);
+                    foreach (var videoUrl in pageVideoUrls) {
+                        allVideoUrls.Add(videoUrl);
+                    }
+                    
+                    // Extract pagination links
+                    try {
+                        var nextPageUrl = ExtractNextPageUrl(html, currentUrl, "hypnotube.com");
+                        if (!string.IsNullOrWhiteSpace(nextPageUrl) && !visitedPages.Contains(nextPageUrl)) {
+                            pageUrlsToFetch.Enqueue(nextPageUrl);
+                        }
+                    } catch (Exception pagEx) {
+                        Logger.Warning($"Error extracting Hypnotube next page URL: {pagEx.Message}");
+                        break;
+                    }
+                }
+                
+                return allVideoUrls.ToList();
             } catch (Exception ex) {
                 Logger.Warning($"Error extracting Hypnotube playlist: {ex.Message}");
-                return new List<string>();
+                return allVideoUrls.ToList();
             }
         }
 
-        private async Task<List<string>> ExtractIwaraPlaylistAsync(string url, CancellationToken cancellationToken) {
-            try {
-                var html = await FetchHtmlAsync(url, cancellationToken);
-                if (string.IsNullOrWhiteSpace(html)) return new List<string>();
 
-                return ExtractVideoLinksFromHtml(html, url, "iwara.tv");
-            } catch (Exception ex) {
-                Logger.Warning($"Error extracting Iwara playlist: {ex.Message}");
-                return new List<string>();
-            }
-        }
 
         private async Task<List<string>> ExtractRule34VideoPlaylistAsync(string url, CancellationToken cancellationToken) {
             var allVideoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -153,9 +187,15 @@ namespace GOON.Classes {
                 var pageUrlsToFetch = new Queue<string>();
                 pageUrlsToFetch.Enqueue(currentUrl);
                 
-                // Safety limit: don't fetch more than 50 pages
-                const int maxPages = 50;
+                // Use configurable max pages from user settings
+                var maxPages = App.Settings?.MaxPlaylistPages ?? 100;
                 int pagesFetched = 0;
+
+                // If this is a single video page, don't treat it as a playlist
+                if (IsRule34VideoPageUrl(url)) {
+                    Logger.Info($"[Rule34Video] Recognized input as single video page, skipping playlist extraction: {url}");
+                    return new List<string> { url };
+                }
                 
                 while (pageUrlsToFetch.Count > 0 && pagesFetched < maxPages) {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -199,6 +239,12 @@ namespace GOON.Classes {
 
         private async Task<List<string>> ExtractPmvHavenPlaylistAsync(string url, CancellationToken cancellationToken) {
             try {
+                // If this is a single video page, don't treat it as a playlist
+                if (IsPmvHavenVideoPageUrl(url)) {
+                    Logger.Info($"[PMVHaven] Recognized input as single video page, skipping playlist extraction: {url}");
+                    return new List<string> { url };
+                }
+
                 var html = await FetchHtmlAsync(url, cancellationToken);
                 if (string.IsNullOrWhiteSpace(html)) return new List<string>();
 
@@ -226,56 +272,69 @@ namespace GOON.Classes {
         }
 
         /// <summary>
-        /// Extracts video links from Hypnotube playlist HTML using site-specific patterns
-        /// Excludes recommended/related videos and focuses on playlist items
+        /// Extracts video links from Hypnotube playlist HTML using regex patterns
+        /// Hypnotube video pages have pattern: /video/[slug]-[id].html with optional ?p=[playlist_id]
         /// </summary>
         private List<string> ExtractHypnotubeLinksFromHtml(string html, string baseUrl) {
             var videoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try {
-                var excludedExtensions = new[] { 
-                    ".css", ".jpg", ".jpeg", ".png", ".gif", ".js", ".json", ".xml", ".ico", 
-                    ".svg", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".rar", 
-                    ".txt", ".md", ".webp", ".bmp", ".tiff"
-                };
-                // Note: .html and .htm are NOT excluded for Hypnotube as video pages use .html extension
+                // Extract playlist ID from URL if present (for filtering related videos)
+                var playlistIdMatch = Regex.Match(baseUrl, @"/playlist/(\d+)", RegexOptions.IgnoreCase);
+                var playlistId = playlistIdMatch.Success ? playlistIdMatch.Groups[1].Value : null;
 
-                // Pattern: Look for <a> tags with href pointing to video pages
-                // Hypnotube typically uses /videos/ or /video/ paths, often ending with .html
-                var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""'][^>]*>";
-                var linkMatches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
+                // Pattern to find all <a> tags with href containing /video/ path
+                var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']*\/video\/[^""']+\.html[^""']*)[""'][^>]*>";
+                var matches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
 
-                foreach (Match match in linkMatches) {
+                Logger.Info($"[Hypnotube] Found {matches.Count} potential video links in HTML");
+
+                foreach (Match match in matches) {
                     if (match.Success && match.Groups.Count > 1) {
                         var href = match.Groups[1].Value;
-                        
-                        // Pre-filter: exclude URLs with non-video extensions (but allow .html/.htm for Hypnotube)
-                        // Use Uri to extract path before query string/fragment for proper extension checking
-                        try {
-                            var testUri = ResolveUrl(href, baseUrl);
-                            if (testUri != null && Uri.TryCreate(testUri, UriKind.Absolute, out Uri uri)) {
-                                var path = uri.AbsolutePath.ToLowerInvariant();
-                                if (excludedExtensions.Any(ext => path.EndsWith(ext))) {
-                                    continue;
-                                }
-                            } else if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                continue;
-                            }
-                        } catch {
-                            // Fallback to simple check if URI parsing fails
-                            if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                continue;
-                            }
-                        }
-                        
                         var resolvedUrl = ResolveUrl(href, baseUrl);
                         
                         if (resolvedUrl != null && IsHypnotubeVideoPageUrl(resolvedUrl)) {
-                            videoUrls.Add(resolvedUrl);
+                            // If we're on a playlist page and link has the same playlist parameter, prioritize it
+                            // But also include links without the parameter (they might be the same videos)
+                            if (playlistId != null) {
+                                // Both links with p= parameter and without are valid playlist items
+                                if (href.Contains($"?p={playlistId}") || href.Contains($"&p={playlistId}")) {
+                                    videoUrls.Add(resolvedUrl);
+                                } else if (!href.Contains("?p=") && !href.Contains("&p=")) {
+                                    // Links without any playlist parameter - add them too
+                                    videoUrls.Add(resolvedUrl);
+                                }
+                            } else {
+                                // Not a playlist page, add all video links
+                                videoUrls.Add(resolvedUrl);
+                            }
                         }
                     }
                 }
 
+                // Fallback: Also try HtmlAgilityPack for better parsing
+                if (videoUrls.Count == 0) {
+                    Logger.Info("[Hypnotube] Regex found no videos, trying HtmlAgilityPack fallback");
+                    var doc = new HtmlDocument();
+                    doc.LoadHtml(html);
+                    
+                    // Select all links that point to video pages
+                    var allLinks = doc.DocumentNode.SelectNodes("//a[@href]");
+                    if (allLinks != null) {
+                        foreach (var link in allLinks) {
+                            var href = link.GetAttributeValue("href", "");
+                            if (href.Contains("/video/") && href.Contains(".html")) {
+                                var resolvedUrl = ResolveUrl(href, baseUrl);
+                                if (resolvedUrl != null && IsHypnotubeVideoPageUrl(resolvedUrl)) {
+                                    videoUrls.Add(resolvedUrl);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Logger.Info($"[Hypnotube] Extracted {videoUrls.Count} unique video URLs");
                 return videoUrls.ToList();
             } catch (Exception ex) {
                 Logger.Warning($"Error extracting Hypnotube video links from HTML: {ex.Message}");
@@ -285,45 +344,31 @@ namespace GOON.Classes {
 
         /// <summary>
         /// Extracts video links from RULE34Video playlist HTML using site-specific patterns
+        /// Rule34Video uses /videos/ID/slug format for video pages
         /// </summary>
         private List<string> ExtractRule34VideoLinksFromHtml(string html, string baseUrl) {
             var videoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try {
+                Logger.Info("[Rule34Video] Starting link extraction");
+                
+                // Excluded extensions (Rule34Video doesn't use .html)
                 var excludedExtensions = new[] { 
                     ".css", ".jpg", ".jpeg", ".png", ".gif", ".js", ".json", ".xml", ".ico", 
                     ".svg", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".rar", 
-                    ".txt", ".md", ".html", ".htm", ".webp", ".bmp", ".tiff"
+                    ".txt", ".md", ".webp", ".bmp", ".tiff"
                 };
 
-                // Pattern: Look for <a> tags with href pointing to video pages
-                // RULE34Video typically uses /videos/ paths with numeric IDs
-                var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""'][^>]*>";
-                var linkMatches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
-
-                foreach (Match match in linkMatches) {
+                // Method 1: Direct pattern for Rule34Video video URLs
+                // Pattern: /videos/[numeric_id]/[slug]
+                var videoPattern = @"href\s*=\s*[""']([^""']*/videos?/\d+[^""']*)[""']";
+                var videoMatches = Regex.Matches(html, videoPattern, RegexOptions.IgnoreCase);
+                
+                Logger.Info($"[Rule34Video] Found {videoMatches.Count} potential video links with direct pattern");
+                
+                foreach (Match match in videoMatches) {
                     if (match.Success && match.Groups.Count > 1) {
                         var href = match.Groups[1].Value;
-                        
-                        // Pre-filter: exclude URLs with non-video extensions
-                        // Use Uri to extract path before query string/fragment for proper extension checking
-                        try {
-                            var testUri = ResolveUrl(href, baseUrl);
-                            if (testUri != null && Uri.TryCreate(testUri, UriKind.Absolute, out Uri uri)) {
-                                var path = uri.AbsolutePath.ToLowerInvariant();
-                                if (excludedExtensions.Any(ext => path.EndsWith(ext))) {
-                                    continue;
-                                }
-                            } else if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                continue;
-                            }
-                        } catch {
-                            // Fallback to simple check if URI parsing fails
-                            if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                continue;
-                            }
-                        }
-                        
                         var resolvedUrl = ResolveUrl(href, baseUrl);
                         
                         if (resolvedUrl != null && IsRule34VideoPageUrl(resolvedUrl)) {
@@ -331,7 +376,45 @@ namespace GOON.Classes {
                         }
                     }
                 }
+                
+                // Method 2: Fallback - generic link extraction if method 1 finds nothing
+                if (videoUrls.Count == 0) {
+                    Logger.Info("[Rule34Video] Direct pattern found nothing, trying generic link extraction");
+                    
+                    var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""'][^>]*>";
+                    var linkMatches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
 
+                    foreach (Match match in linkMatches) {
+                        if (match.Success && match.Groups.Count > 1) {
+                            var href = match.Groups[1].Value;
+                            
+                            // Pre-filter: exclude URLs with non-video extensions
+                            try {
+                                var testUri = ResolveUrl(href, baseUrl);
+                                if (testUri != null && Uri.TryCreate(testUri, UriKind.Absolute, out Uri uri)) {
+                                    var path = uri.AbsolutePath.ToLowerInvariant();
+                                    if (excludedExtensions.Any(ext => path.EndsWith(ext))) {
+                                        continue;
+                                    }
+                                } else if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
+                                    continue;
+                                }
+                            } catch {
+                                if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
+                                    continue;
+                                }
+                            }
+                            
+                            var resolvedUrl = ResolveUrl(href, baseUrl);
+                            
+                            if (resolvedUrl != null && IsRule34VideoPageUrl(resolvedUrl)) {
+                                videoUrls.Add(resolvedUrl);
+                            }
+                        }
+                    }
+                }
+                
+                Logger.Info($"[Rule34Video] Extracted {videoUrls.Count} unique video URLs");
                 return videoUrls.ToList();
             } catch (Exception ex) {
                 Logger.Warning($"Error extracting RULE34Video links from HTML: {ex.Message}");
@@ -348,10 +431,14 @@ namespace GOON.Classes {
             var videoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try {
+                Logger.Info("[PMVHaven] Starting playlist extraction");
+                
                 // PMVHaven uses LD+JSON with @type: ItemList for playlists
                 // Extract JSON from <script type="application/ld+json">
                 var ldJsonPattern = @"<script\s+type=[""']application/ld\+json[""'][^>]*>(.*?)</script>";
                 var ldJsonMatches = Regex.Matches(html, ldJsonPattern, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+                Logger.Info($"[PMVHaven] Found {ldJsonMatches.Count} LD+JSON blocks");
 
                 foreach (Match match in ldJsonMatches) {
                     if (match.Success && match.Groups.Count > 1) {
@@ -360,78 +447,90 @@ namespace GOON.Classes {
                         try {
                             // Check if this is an ItemList (playlist)
                             if (jsonContent.Contains("\"@type\"") && jsonContent.Contains("\"ItemList\"")) {
-                                Logger.Info("PMVHaven: Found LD+JSON ItemList");
+                                Logger.Info("[PMVHaven] Found LD+JSON ItemList");
                                 
-                                // Extract embedUrl values using regex (simple JSON parsing)
-                                // Pattern: "embedUrl": "https://pmvhaven.com/videos/..."
-                                var embedUrlPattern = @"""embedUrl""\s*:\s*""([^""]+)""";
-                                var embedMatches = Regex.Matches(jsonContent, embedUrlPattern, RegexOptions.IgnoreCase);
+                                // Try multiple URL patterns that PMVHaven might use
+                                var urlPatterns = new[] {
+                                    @"""embedUrl""\s*:\s*""([^""]+)""",      // embedUrl field
+                                    @"""url""\s*:\s*""([^""]+/video[^""]+)""", // url field containing /video
+                                    @"""contentUrl""\s*:\s*""([^""]+)""",   // contentUrl field
+                                    @"""@id""\s*:\s*""([^""]+/video[^""]+)""" // @id field containing /video
+                                };
                                 
-                                foreach (Match embedMatch in embedMatches) {
-                                    if (embedMatch.Success && embedMatch.Groups.Count > 1) {
-                                        var embedUrl = embedMatch.Groups[1].Value;
-                                        
-                                        // Validate and add URL
-                                        if (!string.IsNullOrEmpty(embedUrl) && IsPmvHavenVideoPageUrl(embedUrl)) {
-                                            videoUrls.Add(embedUrl);
-                                            Logger.Info($"PMVHaven: Extracted video URL from LD+JSON: {embedUrl}");
+                                foreach (var pattern in urlPatterns) {
+                                    var urlMatches = Regex.Matches(jsonContent, pattern, RegexOptions.IgnoreCase);
+                                    
+                                    foreach (Match urlMatch in urlMatches) {
+                                        if (urlMatch.Success && urlMatch.Groups.Count > 1) {
+                                            var extractedUrl = urlMatch.Groups[1].Value;
+                                            
+                                            // Clean up escaped URLs
+                                            extractedUrl = extractedUrl.Replace("\\/", "/");
+                                            
+                                            // Filter: Only accept pmvhaven.com VIDEO PAGE URLs, not CDN/direct video URLs
+                                            // Skip: video.pmvhaven.com (CDN), .mp4, .m3u8, .webm files
+                                            if (!string.IsNullOrEmpty(extractedUrl) && 
+                                                extractedUrl.Contains("pmvhaven.com/videos/") &&
+                                                !extractedUrl.Contains("video.pmvhaven.com") &&
+                                                !extractedUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) &&
+                                                !extractedUrl.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase) &&
+                                                !extractedUrl.EndsWith(".webm", StringComparison.OrdinalIgnoreCase) &&
+                                                !extractedUrl.Contains("/master.m3u8")) {
+                                                videoUrls.Add(extractedUrl);
+                                                Logger.Info($"[PMVHaven] Extracted page URL: {extractedUrl}");
+                                            }
                                         }
                                     }
                                 }
                                 
                                 if (videoUrls.Count > 0) {
-                                    Logger.Info($"PMVHaven: Successfully extracted {videoUrls.Count} videos from LD+JSON");
+                                    Logger.Info($"[PMVHaven] Successfully extracted {videoUrls.Count} videos from LD+JSON");
                                     return videoUrls.ToList();
                                 }
                             }
                         } catch (Exception jsonEx) {
-                            Logger.Warning($"Error parsing LD+JSON: {jsonEx.Message}");
+                            Logger.Warning($"[PMVHaven] Error parsing LD+JSON: {jsonEx.Message}");
                         }
                     }
                 }
 
-                // Fallback: Try traditional link extraction if LD+JSON fails
-                Logger.Info("PMVHaven: LD+JSON extraction failed, trying fallback link extraction");
+                // Fallback 1: Look for video links in href attributes
+                Logger.Info("[PMVHaven] LD+JSON extraction yielded no results, trying href fallback");
+                var hrefPattern = @"href\s*=\s*[""']([^""']*(?:/video|/videos)/[^""']+)[""']";
+                var hrefMatches = Regex.Matches(html, hrefPattern, RegexOptions.IgnoreCase);
                 
-                var excludedExtensions = new[] { 
-                    ".css", ".jpg", ".jpeg", ".png", ".gif", ".js", ".json", ".xml", ".ico", 
-                    ".svg", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".rar", 
-                    ".txt", ".md", ".html", ".htm", ".webp", ".bmp", ".tiff"
-                };
-
-                // Pattern: Look for <a> tags with href pointing to video pages
-                var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""'][^>]*>";
-                var linkMatches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
-
-                foreach (Match match in linkMatches) {
-                    if (match.Success && match.Groups.Count > 1) {
-                        var href = match.Groups[1].Value;
-                        
-                        // Pre-filter: exclude URLs with non-video extensions
-                        try {
-                            var testUri = ResolveUrl(href, baseUrl);
-                            if (testUri != null && Uri.TryCreate(testUri, UriKind.Absolute, out Uri uri)) {
-                                var path = uri.AbsolutePath.ToLowerInvariant();
-                                if (excludedExtensions.Any(ext => path.EndsWith(ext))) {
-                                    continue;
-                                }
-                            } else if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                continue;
-                            }
-                        } catch {
-                            if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                continue;
-                            }
-                        }
-                        
+                foreach (Match hrefMatch in hrefMatches) {
+                    if (hrefMatch.Success && hrefMatch.Groups.Count > 1) {
+                        var href = hrefMatch.Groups[1].Value;
                         var resolvedUrl = ResolveUrl(href, baseUrl);
-                        
                         if (resolvedUrl != null && IsPmvHavenVideoPageUrl(resolvedUrl)) {
                             videoUrls.Add(resolvedUrl);
                         }
                     }
                 }
+                
+                if (videoUrls.Count > 0) {
+                    Logger.Info($"[PMVHaven] Extracted {videoUrls.Count} videos from href fallback");
+                    return videoUrls.ToList();
+                }
+                
+                // Fallback 2: More aggressive regex for any pmvhaven video URL in the page
+                Logger.Info("[PMVHaven] Trying aggressive URL extraction");
+                var aggressivePattern = @"https?://(?:www\.)?pmvhaven\.com/(?:video|videos)/[^\s\""'<>]+";
+                var aggressiveMatches = Regex.Matches(html, aggressivePattern, RegexOptions.IgnoreCase);
+                
+                foreach (Match aggressiveMatch in aggressiveMatches) {
+                    if (aggressiveMatch.Success) {
+                        var url = aggressiveMatch.Value;
+                        // Clean trailing punctuation
+                        url = Regex.Replace(url, @"[.,;:!?)]+$", "");
+                        if (IsPmvHavenVideoPageUrl(url)) {
+                            videoUrls.Add(url);
+                        }
+                    }
+                }
 
+                Logger.Info($"[PMVHaven] Total extracted: {videoUrls.Count} videos");
                 return videoUrls.ToList();
             } catch (Exception ex) {
                 Logger.Warning($"Error extracting PMVHaven links from HTML: {ex.Message}");
@@ -454,9 +553,8 @@ namespace GOON.Classes {
                 };
 
                 // Pattern 1: Look for <a> tags with href pointing to video pages
-                var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""'][^>]*>";
+                var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""']";
                 var linkMatches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
-
                 foreach (Match match in linkMatches) {
                     if (match.Success && match.Groups.Count > 1) {
                         var href = match.Groups[1].Value;
@@ -910,8 +1008,41 @@ namespace GOON.Classes {
                         var nextUrl = match.Groups[1].Value;
                         var resolved = ResolveUrl(nextUrl, currentUrl);
                         if (resolved != null && Uri.TryCreate(resolved, UriKind.Absolute, out Uri nextUri)) {
-                            if (nextUri.Host.ToLowerInvariant().Contains(domain.ToLowerInvariant()) && 
-                                resolved != currentUrl) {
+                            var normalizedNextPath = nextUri.AbsolutePath.TrimEnd('/');
+                            var normalizedBasePath = basePath.TrimEnd('/');
+                            
+                            // Reject if it's the homepage or root path
+                            if (string.IsNullOrEmpty(normalizedNextPath) || normalizedNextPath == "/") {
+                                Logger.Info($"[Pagination] Rejecting root URL as next page: {resolved}");
+                                continue;
+                            }
+                            
+                            // Ensure same domain
+                            if (!nextUri.Host.ToLowerInvariant().Contains(domain.ToLowerInvariant())) {
+                                continue;
+                            }
+                            
+                            // Ensure it's actually a pagination of the same content
+                            // Either: next path starts with base path (typical pagination)
+                            // OR: same first path segment (e.g., /playlist/ -> /playlist/)
+                            var baseSegments = normalizedBasePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                            var nextSegments = normalizedNextPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                            
+                            bool isValidNextPage = false;
+                            
+                            // Must have at least same first segment
+                            if (baseSegments.Length > 0 && nextSegments.Length > 0 && 
+                                baseSegments[0].Equals(nextSegments[0], StringComparison.OrdinalIgnoreCase)) {
+                                isValidNextPage = true;
+                            }
+                            
+                            // Also check that it's not the same URL
+                            if (resolved == currentUrl) {
+                                isValidNextPage = false;
+                            }
+                            
+                            if (isValidNextPage) {
+                                Logger.Info($"[Pagination] Found next page URL using Strategy 1: {resolved}");
                                 return resolved;
                             }
                         }
@@ -964,13 +1095,6 @@ namespace GOON.Classes {
                         }
                         return $"{currentUri.Scheme}://{currentUri.Host}{basePath}{nextQuery}";
                     }
-                } else if (currentPage == 1 && pageNumbers.Count == 0) {
-                    // Only try page 2 if we're on page 1, no pagination found, AND we haven't already tried page 2
-                    // This prevents infinite loops
-                    var separator = string.IsNullOrWhiteSpace(query) ? "?" : "&";
-                    var testPage2Url = $"{currentUri.Scheme}://{currentUri.Host}{basePath}{query}{separator}page=2";
-                    // Only return if we haven't visited this URL yet (check is done by caller)
-                    return testPage2Url;
                 }
                 
                 return null; // No next page found
@@ -979,6 +1103,7 @@ namespace GOON.Classes {
                 return null;
             }
         }
+
     }
 }
 

@@ -37,12 +37,8 @@
             MediaFailed="FirstVideo_MediaFailed"
             MediaOpened="FirstVideo_MediaOpened"
             Volume="{Binding ActualVolume}"
-            ScrubbingEnabled="True"
-            RenderOptions.BitmapScalingMode="HighQuality">
-            <MediaElement.Effect>
-                <!-- Placeholder for TabooCorruptionEffect, assigned in code-behind -->
-                <BlurEffect Radius="0"/> 
-            </MediaElement.Effect>
+            ScrubbingEnabled="False"
+            RenderOptions.BitmapScalingMode="LowQuality">
         </MediaElement>
 
         <!-- Tint Overlay (Immersion) -->

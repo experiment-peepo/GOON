@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using YoutubeDLSharp;
+using YoutubeDLSharp.Options;
 
 namespace GOON.Classes {
     /// <summary>
@@ -48,7 +49,10 @@ namespace GOON.Classes {
             try {
                 Logger.Info($"[yt-dlp] Extracting video URL: {url}");
                 
-                var result = await _ytdl.RunVideoDataFetch(url, ct: cancellationToken);
+                // Check if we should use cookies for this URL
+                OptionSet options = null;
+                
+                var result = await _ytdl.RunVideoDataFetch(url, ct: cancellationToken, overrideOptions: options);
                 
                 if (!result.Success) {
                     Logger.Warning($"[yt-dlp] Extraction failed: {result.ErrorOutput?.FirstOrDefault()}");
@@ -136,6 +140,47 @@ namespace GOON.Classes {
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Creates a temporary cookie file in Netscape format from a cookie string
+        /// Cookie string format: name1=value1; name2=value2
+        /// </summary>
+        private string CreateTempCookieFile(string cookieString, string domain) {
+            try {
+                var tempFile = Path.Combine(Path.GetTempPath(), $"goon_cookies_{domain.Replace(".", "_")}.txt");
+                var lines = new System.Collections.Generic.List<string> {
+                    "# Netscape HTTP Cookie File",
+                    "# https://curl.haxx.se/docs/http-cookies.html"
+                };
+                
+                // Parse cookies from string format: name=value; name2=value2
+                var cookies = cookieString.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                // Netscape format: domain\tflag\tpath\tsecure\texpiration\tname\tvalue
+                // Ensure the domain is correctly formatted
+                // Use both dotted and non-dotted to be safe
+                var dottedDomain = domain.StartsWith(".") ? domain : "." + domain;
+                var exactDomain = domain.TrimStart('.');
+                
+                foreach (var cookie in cookies) {
+                    var trimmed = cookie.Trim();
+                    var eqIndex = trimmed.IndexOf('=');
+                    if (eqIndex > 0) {
+                        var name = trimmed.Substring(0, eqIndex).Trim();
+                        var value = trimmed.Substring(eqIndex + 1).Trim();
+                        
+                        // Add both versions – yt-dlp/curl can be picky
+                        lines.Add($"{dottedDomain}\tTRUE\t/\tTRUE\t2147483647\t{name}\t{value}");
+                        lines.Add($"{exactDomain}\tFALSE\t/\tTRUE\t2147483647\t{name}\t{value}");
+                    }
+                }
+                
+                File.WriteAllLines(tempFile, lines);
+                return tempFile;
+            } catch (Exception ex) {
+                Logger.Warning($"[yt-dlp] Failed to create temp cookie file: {ex.Message}");
+                return null;
+            }
         }
 
         public void Dispose() {

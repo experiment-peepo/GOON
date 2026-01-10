@@ -93,6 +93,15 @@ namespace GOON.ViewModels {
         }
 
         /// <summary>
+        /// The original page URL with full path (including slug). Used for re-extraction when video URLs expire.
+        /// </summary>
+        private string _originalPageUrl;
+        public string OriginalPageUrl {
+            get => _originalPageUrl;
+            set => SetProperty(ref _originalPageUrl, value);
+        }
+
+        /// <summary>
         /// Gets whether the file is valid and exists
         /// </summary>
         public bool IsValid => ValidationStatus == FileValidationStatus.Valid;

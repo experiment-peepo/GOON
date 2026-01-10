@@ -977,7 +977,8 @@ namespace GOON.ViewModels {
                         ScreenDeviceName = item.AssignedScreen?.DeviceName,
                         Opacity = item.Opacity,
                         Volume = item.Volume,
-                        Title = item.Title // Save title if available
+                        Title = item.Title,
+                        OriginalPageUrl = item.OriginalPageUrl // Store for re-extraction when URLs expire
                     });
                 }
                 
@@ -1027,6 +1028,7 @@ namespace GOON.ViewModels {
                             var videoItem = new VideoItem(item.FilePath, screen);
                             videoItem.Opacity = item.Opacity;
                             videoItem.Volume = item.Volume;
+                            videoItem.OriginalPageUrl = item.OriginalPageUrl; // Restore for re-extraction
                             
                             // Set title if available (backward compatible - Title may be null for old playlists)
                             if (!string.IsNullOrWhiteSpace(item.Title)) {
@@ -1103,7 +1105,8 @@ namespace GOON.ViewModels {
                     ScreenDeviceName = item.AssignedScreen?.DeviceName,
                     Opacity = item.Opacity,
                     Volume = item.Volume,
-                    Title = item.Title // Save title if available
+                    Title = item.Title,
+                    OriginalPageUrl = item.OriginalPageUrl // Store for re-extraction when URLs expire
                 }).ToList();
 
                 Action saveAction = () => {
@@ -1168,6 +1171,7 @@ namespace GOON.ViewModels {
                             var videoItem = new VideoItem(item.FilePath, screen);
                             videoItem.Opacity = item.Opacity;
                             videoItem.Volume = item.Volume;
+                            videoItem.OriginalPageUrl = item.OriginalPageUrl; // Restore for re-extraction
                             
                             // Set title if available (backward compatible - Title may be null for old sessions)
                             if (!string.IsNullOrWhiteSpace(item.Title)) {
@@ -1179,8 +1183,10 @@ namespace GOON.ViewModels {
                             if (videoItem.IsUrl && NeedsReExtraction(item.FilePath)) {
                                 Logger.Info($"LoadSession: Detected time-sensitive URL for '{videoItem.FileName}', attempting re-extraction...");
                                 try {
-                                    // Try to extract fresh URL from the original page URL if we can determine it
-                                    var pageUrl = GetOriginalPageUrl(item.FilePath);
+                                    // Use stored OriginalPageUrl if available, otherwise try to reconstruct
+                                    var pageUrl = !string.IsNullOrEmpty(item.OriginalPageUrl) 
+                                        ? item.OriginalPageUrl 
+                                        : GetOriginalPageUrl(item.FilePath);
                                     if (!string.IsNullOrEmpty(pageUrl)) {
                                         Logger.Info($"LoadSession: Re-extracting from page URL: {pageUrl}");
                                         var freshUrl = await _urlExtractor.ExtractVideoUrlAsync(pageUrl, cancellationToken);
