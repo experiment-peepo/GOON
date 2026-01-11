@@ -54,6 +54,8 @@ namespace GOON.Classes {
                     videoPageUrls = await ExtractRule34VideoPlaylistAsync(playlistUrl, cancellationToken);
                 } else if (host.Contains("pmvhaven.com")) {
                     videoPageUrls = await ExtractPmvHavenPlaylistAsync(playlistUrl, cancellationToken);
+                } else if (host.Contains("redgifs.com")) {
+                    videoPageUrls = await ExtractRedgifsPlaylistAsync(playlistUrl, cancellationToken);
                 } else {
                     // Generic extraction
                     videoPageUrls = await ExtractGenericPlaylistAsync(playlistUrl, cancellationToken);
@@ -176,6 +178,75 @@ namespace GOON.Classes {
         }
 
 
+
+        private async Task<List<string>> ExtractRedgifsPlaylistAsync(string url, CancellationToken cancellationToken) {
+            var videoUrls = new List<string>();
+            try {
+                Logger.Info($"[RedGifs] Starting playlist extraction for {url}");
+
+                // Extract username
+                // Pattern: /users/username
+                var uri = new Uri(url);
+                var usernameMatch = Regex.Match(uri.AbsolutePath, @"/users/([^/?&]+)", RegexOptions.IgnoreCase);
+                if (!usernameMatch.Success) {
+                    Logger.Warning("[RedGifs] Could not extract username from URL - pattern mismatch");
+                    return videoUrls;
+                }
+                var username = usernameMatch.Groups[1].Value;
+                Logger.Info($"[RedGifs] Extracted username: {username}");
+
+                using var httpClient = new HttpClient();
+                httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+                // 1. Get temp token
+                // Reusing the same auth logic as VideoUrlExtractor
+                var authResponse = await httpClient.GetStringAsync("https://api.redgifs.com/v2/auth/temporary");
+                var tokenMatch = Regex.Match(authResponse, @"""token""\s*:\s*""([^""]+)""");
+                if (!tokenMatch.Success) {
+                    Logger.Warning("[RedGifs] Failed to extract auth token");
+                    return videoUrls;
+                }
+                var token = tokenMatch.Groups[1].Value;
+
+                // 2. Fetch User GIFs
+                // Using search endpoint to sort by new, getting up to 100 items
+                var apiUrl = $"https://api.redgifs.com/v2/users/{username}/search?order=new&count=100";
+                var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+                request.Headers.Add("Authorization", $"Bearer {token}");
+
+                var response = await httpClient.SendAsync(request, cancellationToken);
+                if (!response.IsSuccessStatusCode) {
+                    Logger.Warning($"[RedGifs] API failed with status: {response.StatusCode}");
+                    return videoUrls;
+                }
+                
+                var json = await response.Content.ReadAsStringAsync();
+                
+                // 3. Extract IDs
+                // Response has a "gifs" array. We scan for "id":"..." pattern which is robust enough for this API.
+                // We'll filter out duplicates.
+                var idMatches = Regex.Matches(json, @"""id""\s*:\s*""([^""]+)""");
+                var uniqueIds = new HashSet<string>();
+                
+                foreach (Match match in idMatches) {
+                    if (match.Success && match.Groups.Count > 1) {
+                        var id = match.Groups[1].Value;
+                        if (!string.IsNullOrEmpty(id) && id.Length > 5 && !uniqueIds.Contains(id)) {
+                             uniqueIds.Add(id);
+                             // Construct the watch URL which the VideoUrlExtractor knows how to handle
+                             videoUrls.Add($"https://www.redgifs.com/watch/{id}");
+                        }
+                    }
+                }
+
+                Logger.Info($"[RedGifs] Extracted {videoUrls.Count} videos for user {username}");
+                return videoUrls;
+
+            } catch (Exception ex) {
+                Logger.Warning($"Error extracting RedGifs playlist: {ex.Message}");
+                return videoUrls;
+            }
+        }
 
         private async Task<List<string>> ExtractRule34VideoPlaylistAsync(string url, CancellationToken cancellationToken) {
             var allVideoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

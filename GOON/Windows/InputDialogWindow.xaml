@@ -93,7 +93,7 @@
                          Margin="0,0,0,12"
                          KeyDown="InputTextBox_KeyDown"
                          ToolTip="Enter video filename or URL"/>
-                <TextBlock Text="Supported: Hypnotube, PMVHaven, RULE34Video"
+                <TextBlock Text="Supported: Hypnotube, PMVHaven, RULE34Video, RedGifs"
                            Foreground="{StaticResource TextSecondary}"
                            FontSize="11"
                            FontStyle="Italic"

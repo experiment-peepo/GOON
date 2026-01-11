@@ -127,11 +127,12 @@ namespace GOON.Classes {
                 
                 string videoUrl = null;
                 
-                // Skip yt-dlp for domains where we have specialized scrapers (faster)
-                // Use yt-dlp for cloud storage sites and rule34video (requires headers MediaElement can't send)
+                // specialized scrapers (faster). Use yt-dlp for cloud storage sites and rule34video.
+                // RedGifs profiles (e.g. /users/) must use yt-dlp as they are playlists.
+                var isRedgifsProfile = host.Contains("redgifs.com") && normalizedUrl.Contains("/users/");
                 var hasSpecializedScraper = host.Contains("pmvhaven.com") || 
                                            host.Contains("hypnotube.com") ||
-                                           host.Contains("redgifs.com");
+                                           (host.Contains("redgifs.com") && !isRedgifsProfile);
                 var useYtDlp = !hasSpecializedScraper;
 
                 if (_ytDlpService != null && _ytDlpService.IsAvailable && useYtDlp) {
@@ -366,6 +367,12 @@ namespace GOON.Classes {
                 var uri = new Uri(url);
                 var pathSegments = uri.AbsolutePath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
                 
+                // Check if this is a user profile URL (e.g. /users/username)
+                if (uri.AbsolutePath.Contains("/users/")) {
+                    Logger.Info("[RedGifs] Detected user profile URL, delegating to yt-dlp");
+                    return null;
+                }
+
                 string gifId = null;
                 // Handle both /watch/id and /ifr/id patterns
                 if (pathSegments.Length >= 2) {

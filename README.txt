@@ -14,6 +14,7 @@ KEY CAPABILITIES
 * Overlay Mode: High-performance transparent overlays that play directly on your desktop.
 * Truly Portable: Stores all settings, logs, and sessions in a local 'Data' folder if write access is available.
 * Web Integration: Stream directly from supported sites using integrated yt-dlp support.
+* Smart Buffering: Automatically downloads high-res videos to disk for instant, stutter-free playback.
 
 QUICK START
 -----------

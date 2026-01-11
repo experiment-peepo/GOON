@@ -10,6 +10,14 @@ A specialized video player designed for multi-monitor playback with high-perform
 - **Truly Portable**: Automatic local data storage in `Data/` folder; falls back to `%AppData%` only if restricted.
 - **Deep Web Integration**: Integrated `yt-dlp` support for seamless streaming from major media sites.
 - **Panic Hotkey**: Instantly clear all active players (Default: `Ctrl+Shift+End`).
+- **Smart Pre-buffering**: Automatically buffers high-resolution videos (4K+) to disk for instant playback, with auto-cleanup after 10 days.
+- **Session Support**: Ability to inject cookies for sites like Hypnotube to unlock premium/high-res content.
+
+## Session & Cookies
+Some sites (e.g., Hypnotube) require authentication to access high-quality streams.
+1.  **Extract Cookies**: Use the included `Hypnotube_Cookie_Helper.txt` script in your browser console to copy your session cookies.
+2.  **Import**: clear In GOON, go to **Settings > Session & History**, find the site, and click **Paste**.
+3.  **Enjoy**: High-resolution streams will now work automatically.
 
 ## Dependencies
 - **.NET 8 Desktop Runtime**: This app requires the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) to be installed.

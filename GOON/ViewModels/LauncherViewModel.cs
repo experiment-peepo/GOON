@@ -965,9 +965,16 @@ namespace GOON.ViewModels {
         }
 
         private void SavePlaylist(object obj) {
+            // Ensure Playlists directory exists
+            var playlistsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
+            if (!System.IO.Directory.Exists(playlistsDir)) {
+                System.IO.Directory.CreateDirectory(playlistsDir);
+            }
+
             var dlg = new SaveFileDialog {
                 Filter = "GOON Playlist|*.json",
-                FileName = "playlist.json"
+                FileName = "playlist.json",
+                InitialDirectory = playlistsDir
             };
             if (dlg.ShowDialog() == true) {
                 var playlist = new Playlist();
@@ -988,8 +995,15 @@ namespace GOON.ViewModels {
         }
 
         private void LoadPlaylist(object obj) {
+             // Ensure Playlists directory exists for initial directory
+            var playlistsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
+            if (!System.IO.Directory.Exists(playlistsDir)) {
+                System.IO.Directory.CreateDirectory(playlistsDir);
+            }
+
             var dlg = new OpenFileDialog {
-                Filter = "GOON Playlist|*.json"
+                Filter = "GOON Playlist|*.json",
+                InitialDirectory = playlistsDir
             };
             if (dlg.ShowDialog() == true) {
                 _ = LoadPlaylistAsync(dlg.FileName).ContinueWith(task => {

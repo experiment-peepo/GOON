@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Reflection;
 using YoutubeDLSharp;
 using YoutubeDLSharp.Options;
 
@@ -62,6 +63,14 @@ namespace GOON.Classes {
                 var videoUrl = result.Data?.Url;
                 if (!string.IsNullOrEmpty(videoUrl)) {
                     Logger.Info($"[yt-dlp] Successfully extracted URL");
+                    try {
+                        var data = result.Data;
+                        var props = data.GetType().GetProperties();
+                        var w = props.FirstOrDefault(p => p.Name.Equals("width", StringComparison.OrdinalIgnoreCase))?.GetValue(data);
+                        var h = props.FirstOrDefault(p => p.Name.Equals("height", StringComparison.OrdinalIgnoreCase))?.GetValue(data);
+                        var f = props.FirstOrDefault(p => p.Name.Equals("format", StringComparison.OrdinalIgnoreCase))?.GetValue(data);
+                        Logger.Info($"[yt-dlp] Quality Info: {w}x{h}, Format: {f}");
+                    } catch { /* ignore reflection errors */ }
                 }
                 
                 return videoUrl;
