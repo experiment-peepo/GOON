@@ -1,4 +1,4 @@
-GOON v1.0.4
+GOON v1.0.5
 ===========
 
 A specialized video player designed for multi-monitor playback with high-performance overlay capabilities.
@@ -27,7 +27,7 @@ KNOWN NOTES
 -----------
 * Lean Distribution: This version is "Framework-Dependent" to keep the file size small and the folder clean. It relies on your system's .NET 8 installation.
 * Data Storage: If the app cannot create a local 'Data' folder (e.g., in a protected Program Files directory), it will fall back to %AppData%\GOON.
-* Cookie Helper: Use the included 'Hypnotube_Cookie_Helper.txt' to easily extract cookies for Hypnotube functionality.
+
 
 ---
 Support the development on Ko-fi: https://ko-fi.com/vexfromdestiny

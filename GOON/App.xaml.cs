@@ -80,6 +80,16 @@ namespace GOON {
             
             // Register Services
             ServiceContainer.Register(UserSettings.Load());
+
+            // Ensure Playlists directory exists
+            try {
+                if (!System.IO.Directory.Exists(AppPaths.PlaylistsDirectory)) {
+                    System.IO.Directory.CreateDirectory(AppPaths.PlaylistsDirectory);
+                }
+            } catch (Exception ex) {
+                Logger.Warning($"Failed to create Playlists directory: {ex.Message}");
+            }
+
             ServiceContainer.Register(new VideoPlayerService());
             ServiceContainer.Register(new HotkeyService());
             ServiceContainer.Register(new UrlCacheService());

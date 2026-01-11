@@ -966,7 +966,7 @@ namespace GOON.ViewModels {
 
         private void SavePlaylist(object obj) {
             // Ensure Playlists directory exists
-            var playlistsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
+            var playlistsDir = AppPaths.PlaylistsDirectory;
             if (!System.IO.Directory.Exists(playlistsDir)) {
                 System.IO.Directory.CreateDirectory(playlistsDir);
             }
@@ -996,7 +996,7 @@ namespace GOON.ViewModels {
 
         private void LoadPlaylist(object obj) {
              // Ensure Playlists directory exists for initial directory
-            var playlistsDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
+            var playlistsDir = AppPaths.PlaylistsDirectory;
             if (!System.IO.Directory.Exists(playlistsDir)) {
                 System.IO.Directory.CreateDirectory(playlistsDir);
             }
@@ -1132,7 +1132,7 @@ namespace GOON.ViewModels {
                     try {
                         var playlist = new Playlist { Items = playlistItems };
                         var json = System.Text.Json.JsonSerializer.Serialize(playlist);
-                        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "session.json");
+                        var path = AppPaths.SessionFile;
                         System.IO.File.WriteAllText(path, json);
                     } catch (Exception ex) {
                         Logger.Error("Failed to save session", ex);
@@ -1160,7 +1160,7 @@ namespace GOON.ViewModels {
             try {
                 cancellationToken.ThrowIfCancellationRequested();
                 
-                var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "session.json");
+                var path = AppPaths.SessionFile;
                 if (!System.IO.File.Exists(path)) return;
 
                 // Read file asynchronously to avoid blocking UI thread

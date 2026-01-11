@@ -12,7 +12,7 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <Description>An overlay video player for sissies</Description>
     <Company>Damsel</Company>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
@@ -36,9 +36,6 @@
     </Content>
     <Content Include="..\Dependencies\ffmpeg.exe" Condition="Exists('..\Dependencies\ffmpeg.exe')">
       <Link>ffmpeg.exe</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Hypnotube_Cookie_Helper.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

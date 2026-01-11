@@ -44,5 +44,6 @@ namespace GOON.Classes {
         public static string CacheFile => Path.Combine(DataDirectory, "urlcache.json");
         public static string TelemetryFile => Path.Combine(DataDirectory, "telemetry.json");
         public static string PositionsFile => Path.Combine(DataDirectory, "playback_positions.json");
+        public static string PlaylistsDirectory => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
     }
 }

@@ -1,4 +1,4 @@
-# GOØN v1.0.4
+# GOØN v1.0.5
 
 A specialized video player designed for multi-monitor playback with high-performance overlay capabilities for desktop.
 
@@ -15,8 +15,8 @@ A specialized video player designed for multi-monitor playback with high-perform
 
 ## Session & Cookies
 Some sites (e.g., Hypnotube) require authentication to access high-quality streams.
-1.  **Extract Cookies**: Use the included `Hypnotube_Cookie_Helper.txt` script in your browser console to copy your session cookies.
-2.  **Import**: clear In GOON, go to **Settings > Session & History**, find the site, and click **Paste**.
+1.  **Extract Cookies**: Log in to the site in your browser, open developer tools (F12), type `copy(document.cookie)` in the console.
+2.  **Import**: In GOON, go to **Settings > Session & History**, find the site, and click **Paste**.
 3.  **Enjoy**: High-resolution streams will now work automatically.
 
 ## Dependencies
