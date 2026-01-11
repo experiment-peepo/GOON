@@ -1,0 +1,10 @@
+// Hypnotube Cookie Helper Script
+// 1. Log in to Hypnotube in your web browser
+// 2. Open the Developer Tools (F12)
+// 3. Go to the "Console" tab
+// 4. Paste the line below and press Enter:
+
+(function(){copy(document.cookie);alert('Goon Cookie Helper:\nCookies copied to clipboard!\n\nNow return to GOON and click Paste.');})();
+
+// 5. The cookies are now in your clipboard!
+// 6. Go to GOON -> Settings -> Session & History -> click "Paste" next to Hypnotube Cookies.
