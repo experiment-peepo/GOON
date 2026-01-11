@@ -1,4 +1,4 @@
-GOON v1.0.3
+GOON v1.0.4
 ===========
 
 A specialized video player designed for multi-monitor playback with high-performance overlay capabilities.
