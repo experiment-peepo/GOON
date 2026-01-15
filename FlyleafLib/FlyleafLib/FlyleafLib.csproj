@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+	<UseWindowsForms>true</UseWindowsForms>
+	<UseWPF>true</UseWPF>
+	<PackageIcon>Flyleaf.png</PackageIcon>
+	<PackageIconUrl />
+	<RepositoryUrl></RepositoryUrl>
+	<Description>Media Player .NET Library for WinUI 3/WPF/WinForms (based on FFmpeg/DirectX)</Description>
+	<Version>3.10.2</Version>
+	<Authors>SuRGeoNix</Authors>
+	<Copyright>SuRGeoNix © 2025</Copyright>
+	<PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+	<PackageProjectUrl>https://github.com/SuRGeoNix/Flyleaf</PackageProjectUrl>
+	<PackageTags>flyleaf flyleaflib video audio media player engine framework download extract ffmpeg vortice directx</PackageTags>
+	<IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReleaseNotes>
+		- Player.ScreamerZeroLatency: Fixes a critical issue with the new Video Frame Cache
+		- Engine.Config: Introduces KeepDisplayActive and allows -by disabling it- the system/display to sleep if required
+	</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>embedded</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\Images\Flyleaf.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Flyleaf.FFmpeg.Bindings" Version="8.0.1" />
+	<PackageReference Include="Vortice.D3DCompiler" Version="3.8.2" />
+	<PackageReference Include="Vortice.Direct3D11" Version="3.8.2" />
+	<PackageReference Include="Vortice.Direct3D9" Version="3.8.2" />
+	<PackageReference Include="Vortice.DXGI" Version="3.8.2" />
+	<PackageReference Include="Vortice.DirectComposition" Version="3.8.2" />
+	<PackageReference Include="Vortice.Mathematics" Version="2.1.0" />
+	<PackageReference Include="Vortice.MediaFoundation" Version="3.8.2" />
+	<PackageReference Include="Vortice.XAudio2" Version="3.8.2" />
+  </ItemGroup>
+
+</Project>

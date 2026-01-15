@@ -1,0 +1,39 @@
+﻿<Window x:Class="FlyleafMultiPlayer__WPF_.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:FlyleafMultiPlayer__WPF_"
+
+        xmlns:flwpf="clr-namespace:FlyleafLib.Controls.WPF;assembly=FlyleafLib.Controls.WPF"
+        mc:Ignorable="d"
+        Title="Flyleaf MultiPlayer" Height="450" Width="853" Background="Black">
+
+    <Window.Resources>
+        <ResourceDictionary Source="FlyleafMEOverride.xaml"/>
+    </Window.Resources>
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_Tests">
+                <MenuItem Header="Swap Players Clockwise" Command="{Binding RotatePlayers}" />
+                <MenuItem Header="Move Player 1" Click="MenuItem_Click"/>
+            </MenuItem>
+        </Menu>
+        <Grid x:Name="MultiPlayer">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+
+            <flwpf:FlyleafME Grid.Row="0" Grid.Column="0" Player="{Binding PlayerView1, Mode=TwoWay}" x:Name="FlyleafME1"/>
+            <flwpf:FlyleafME Grid.Row="0" Grid.Column="1" Player="{Binding PlayerView2, Mode=TwoWay}"/>
+            <flwpf:FlyleafME Grid.Row="1" Grid.Column="1" Player="{Binding PlayerView3, Mode=TwoWay}"/>
+            <flwpf:FlyleafME Grid.Row="1" Grid.Column="0" Player="{Binding PlayerView4, Mode=TwoWay}"/>
+
+        </Grid>
+    </DockPanel>
+</Window>
