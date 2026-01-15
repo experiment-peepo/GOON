@@ -17,7 +17,7 @@
         xmlns:local="clr-namespace:GOON.Windows"
         xmlns:flyleaf="clr-namespace:FlyleafLib.Controls.WPF;assembly=FlyleafLib.Controls.WPF"
         mc:Ignorable="d"
-        Title="GØØN" Height="450" Width="800"
+        Title="GOØN" Height="450" Width="800"
         WindowStyle="None" WindowState="Normal" Topmost="True"
         ResizeMode="NoResize"
         WindowStartupLocation="Manual"

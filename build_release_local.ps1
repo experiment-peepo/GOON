@@ -113,7 +113,7 @@ if ($goonExe -and $ytDlp -and $ffmpeg) {
         Write-Host "$($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB" 
     }
     Write-Host "`nNote: This is a framework-dependent build." -ForegroundColor Cyan
-    Write-Host "Users need .NET 8 Runtime installed: https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Cyan
+    Write-Host "Users need .NET 10 Runtime installed: https://dotnet.microsoft.com/download/dotnet/10.0" -ForegroundColor Cyan
 
     # 7. Create Zip Package
     Write-Host "`n[7] Creating GOON.zip package..." -ForegroundColor Yellow

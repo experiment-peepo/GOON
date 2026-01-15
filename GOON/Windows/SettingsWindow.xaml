@@ -301,7 +301,7 @@
                             <!-- Start with Windows -->
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
                                 <TextBlock Text="Start with Windows" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
-                                <TextBlock Text="Launch GØØN automatically when Windows starts" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
+                                <TextBlock Text="Launch GOØN automatically when Windows starts" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <CheckBox Grid.Row="1" Grid.Column="1" 
                                       IsChecked="{Binding StartWithWindows}"

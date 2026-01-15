@@ -6,8 +6,8 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>GOON</RootNamespace>
     <AssemblyName>GOON</AssemblyName>
-    <Title>GØØN</Title>
-    <Product>GØØN</Product>
+    <Title>GOON</Title>
+    <Product>GOON</Product>
     <ApplicationIcon>Images\icon.ico</ApplicationIcon>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Platforms>x64</Platforms>

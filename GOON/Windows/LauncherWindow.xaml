@@ -17,7 +17,7 @@
         xmlns:vm="clr-namespace:GOON.ViewModels"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="GØØN" Width="700" Height="750" MinWidth="600" MinHeight="400"
+        Title="GOØN" Width="700" Height="750" MinWidth="600" MinHeight="400"
         ResizeMode="CanResize"
         WindowStyle="None"
         WindowStartupLocation="CenterScreen"
@@ -201,7 +201,7 @@
                             <DropShadowEffect Color="#FF69B4" BlurRadius="6" ShadowDepth="0" Opacity="0.4"/>
                         </Image.Effect>
                     </Image>
-                    <TextBlock Text="GØØN" Foreground="White" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Segoe UI, sans-serif"/>
+                    <TextBlock Text="GOØN" Foreground="White" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Segoe UI, sans-serif"/>
                 </StackPanel>
 
                 <!-- Control Buttons on Right -->
@@ -263,7 +263,7 @@
         
         <!-- Title section with better spacing -->
         <StackPanel Margin="0,20,0,24" Grid.Row="0">
-            <Label Style="{StaticResource MainTitle}" Margin="0,0,0,10">GØØN</Label>
+            <Label Style="{StaticResource MainTitle}" Margin="0,0,0,10">GOØN</Label>
             <Label Style="{StaticResource LowerTitle}" 
                    FontStyle="Italic"
                    FontSize="13"
