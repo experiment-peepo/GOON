@@ -42,7 +42,7 @@ if ($content -match $versionPattern) {
         }
     }
     else {
-        $newVersion = [Version]$currentVersionStr
+        $newVersion = $currentVersionStr
         Write-Host "Using current version: $newVersion" -ForegroundColor Green
         Write-Host "Tip: Use -Increment to bump the version number." -ForegroundColor DarkGray
     }

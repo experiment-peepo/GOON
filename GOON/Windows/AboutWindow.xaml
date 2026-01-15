@@ -46,7 +46,7 @@
             <StackPanel Grid.Row="1" Margin="24,12,24,24">
                 <StackPanel Margin="0,0,0,24">
                     <TextBlock Text="GOØN" FontSize="28" FontWeight="Bold" Foreground="{StaticResource AccentPrimary}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Overlay video player for sissies" FontSize="14" FontStyle="Italic" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                    <TextBlock Text="Overlay video player for gooners" FontSize="14" FontStyle="Italic" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0"/>
                     <TextBlock x:Name="VersionText" 
                                HorizontalAlignment="Center" 
                                Foreground="{StaticResource TextTertiary}" 

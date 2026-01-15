@@ -12,8 +12,8 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.0.8</Version>
-    <Description>An overlay video player for sissies</Description>
+    <Version>1.0.0-beta</Version>
+    <Description>Overlay video player for gooners</Description>
     <Company>Damsel</Company>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
