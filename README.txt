@@ -1,4 +1,4 @@
-GOON v1.0.0-beta
+GOON v1.0.0
 ==============
 
 Overlay video player for gooners. A specialized video player designed for multi-monitor playback with high-performance overlay capabilities.
