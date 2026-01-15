@@ -72,7 +72,7 @@ public class FlyleafD3DImage : Image, IDisposable
     }
 
     private int renderCount = 0;
-    private void OnRendering(object sender, EventArgs e)
+    private void OnRendering(object? sender, EventArgs e)
     {
         if (disposed) return;
         var p = Player;

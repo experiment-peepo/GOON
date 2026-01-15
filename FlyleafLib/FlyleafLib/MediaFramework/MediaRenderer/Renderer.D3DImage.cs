@@ -1,6 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
-using nint = System.IntPtr;
+
 using SharpGen.Runtime;
 
 using Vortice.Direct3D9;
