@@ -10,8 +10,8 @@ namespace GOON.Windows {
             InitializeComponent();
             DataContext = this;
             
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            VersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
+            var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            VersionText.Text = $"v{version}";
         }
 
         private void Grid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
