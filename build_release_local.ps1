@@ -112,13 +112,20 @@ if ($goonExe -and $ytDlp -and $ffmpeg) {
     Get-ChildItem "publish" -Filter "*.exe" | ForEach-Object { 
         Write-Host "$($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB" 
     }
+
+    # 7. Final Cleanup (Ensure no XML/PDB/Log files leaked into publish)
+    Write-Host "`nCleaning up any transient files..." -ForegroundColor Yellow
+    Get-ChildItem "publish" -Recurse -Include *.xml, *.pdb, *.log, *.obj | Remove-Item -Force
+
     Write-Host "`nNote: This is a framework-dependent build." -ForegroundColor Cyan
     Write-Host "Users need .NET 10 Runtime installed: https://dotnet.microsoft.com/download/dotnet/10.0" -ForegroundColor Cyan
 
-    # 7. Create Zip Package
-    Write-Host "`n[7] Creating GOON.zip package..." -ForegroundColor Yellow
+    # 8. Create Zip Package
+    Write-Host "`n[8] Creating GOON.zip package (Optimal Compression)..." -ForegroundColor Yellow
     if (Test-Path "GOON.zip") { Remove-Item "GOON.zip" -Force }
-    Compress-Archive -Path "publish/*" -DestinationPath "GOON.zip" -CompressionLevel Optimal
+    
+    # Use Compress-Archive with Optimal level
+    Compress-Archive -Path "publish\*" -DestinationPath "$PSScriptRoot\GOON.zip" -CompressionLevel Optimal
     
     $zipSize = [math]::Round((Get-Item "GOON.zip").Length / 1MB, 2)
     Write-Host "`n✅ SUCCESS! Created GOON.zip ($zipSize MB) for version $newVersion" -ForegroundColor Green
