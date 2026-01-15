@@ -29,7 +29,7 @@
         <local:OpacityScaleConverter x:Key="OpacityScaleConverter"/>
         <x:Array x:Key="KeyList" Type="sys:String">
             <sys:String>End</sys:String>
-            <sys:String>Esc</sys:String>
+            <sys:String>Escape</sys:String>
             <sys:String>Space</sys:String>
             <sys:String>F1</sys:String>
             <sys:String>F2</sys:String>
@@ -120,13 +120,6 @@
                                             </Grid>
                                         </Border>
                                         <ControlTemplate.Triggers>
-                                            <Trigger Property="IsChecked" Value="True">
-                                                <Setter TargetName="Arrow" Property="RenderTransform">
-                                                    <Setter.Value>
-                                                        <RotateTransform Angle="180"/>
-                                                    </Setter.Value>
-                                                </Setter>
-                                            </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Arrow" Property="Stroke" Value="{StaticResource AccentPrimary}"/>
                                             </Trigger>
@@ -141,6 +134,17 @@
                                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                     Padding="10,10,10,20">
+                                <Border.Resources>
+                                    <!-- Locally override the global Label style that has the glow/margin issues -->
+                                    <Style TargetType="Label">
+                                        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                                        <Setter Property="FontSize" Value="13"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Margin" Value="0"/>
+                                        <Setter Property="Effect" Value="{x:Null}"/>
+                                    </Style>
+                                </Border.Resources>
                                 <ContentPresenter/>
                             </Border>
                             
@@ -152,7 +156,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
                                 <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible"/>
-                                <Setter TargetName="ContentRow" Property="Height" Value="*"/>
+                                <Setter TargetName="ContentRow" Property="Height" Value="Auto"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -194,7 +198,7 @@
                 <StackPanel>
                     <!-- Playback Settings -->
                     <Expander Header="Playback" Style="{StaticResource SettingsExpanderStyle}" IsExpanded="{Binding IsPlaybackExpanded}">
-                        <Grid>
+                        <Grid Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -204,12 +208,13 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
- 
+
                             <!-- Default Monitor -->
                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
-                                <Label Content="Default Monitor" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Monitor used by default for new videos" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Default Monitor" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Monitor used by default for new videos" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <ComboBox Grid.Row="0" Grid.Column="1" Width="180"
                                       ItemsSource="{Binding AvailableMonitors}"
@@ -220,8 +225,8 @@
 
                             <!-- Default Opacity -->
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
-                                <Label Content="Default Opacity" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Initial opacity level for new videos" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Default Opacity" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Initial opacity level for new videos" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,20">
                                 <Slider Width="140" Value="{Binding DefaultOpacity, Converter={StaticResource OpacityScaleConverter}}"
@@ -231,11 +236,11 @@
                                 <TextBlock Text="{Binding DefaultOpacity, Converter={StaticResource OpacityToIntConverter}}"
                                            Foreground="{StaticResource TextSecondary}" FontSize="12" FontWeight="SemiBold" Width="35" TextAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
                             </StackPanel>
- 
+
                             <!-- Default Volume -->
                             <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
-                                <Label Content="Default Volume" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Initial volume level for new videos" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Default Volume" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Initial volume level for new videos" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,20">
                                 <Slider Width="140" Value="{Binding DefaultVolume}"
@@ -245,22 +250,34 @@
                                 <TextBlock Text="{Binding DefaultVolume, StringFormat='{}{0:P0}'}" 
                                            Foreground="{StaticResource TextSecondary}" FontSize="12" FontWeight="SemiBold" Width="35" TextAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0"/>
                             </StackPanel>
- 
+
                             <!-- Opaque Mode -->
-                            <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
-                                <Label Content="Opaque Mode" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Disable transparency for all videos" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                            <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
+                                <TextBlock Text="Opaque Mode" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Disable transparency for all videos" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <CheckBox Grid.Row="3" Grid.Column="1" 
                                       IsChecked="{Binding AlwaysOpaque}"
+                                      Style="{StaticResource ModernCheckBoxStyle}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,0,20"/>
+
+                            <!-- Super Resolution (AI Upscaling) -->
+                            <StackPanel Grid.Row="4" Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Super Resolution (AI Upscaling)" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="AI upscaling for Nvidia RTX or Intel 10th+ Gen GPUs" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <CheckBox Grid.Row="4" Grid.Column="1" 
+                                      IsChecked="{Binding EnableSuperResolution}"
                                       Style="{StaticResource ModernCheckBoxStyle}"
                                       VerticalAlignment="Center"/>
                         </Grid>
                     </Expander>
 
                     <!-- Application Settings -->
+                    <!-- Application Settings -->
                     <Expander Header="Application" Style="{StaticResource SettingsExpanderStyle}" IsExpanded="{Binding IsApplicationExpanded}">
-                        <Grid>
+                        <Grid Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -269,11 +286,11 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
- 
+
                             <!-- Always on Top -->
                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
-                                <Label Content="Always on Top (Launcher)" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Keep the launcher window above others" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Always on Top (Launcher)" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Keep the launcher window above others" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <CheckBox Grid.Row="0" Grid.Column="1" 
                                       IsChecked="{Binding LauncherAlwaysOnTop}"
@@ -283,8 +300,8 @@
                             
                             <!-- Start with Windows -->
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0" VerticalAlignment="Center">
-                                <Label Content="Start with Windows" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Launch GOØN automatically when Windows starts" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Start with Windows" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Launch GOØN automatically when Windows starts" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <CheckBox Grid.Row="1" Grid.Column="1" 
                                       IsChecked="{Binding StartWithWindows}"
@@ -295,7 +312,7 @@
 
                     <!-- Session & History Settings -->
                     <Expander Header="Session &amp; History" Style="{StaticResource SettingsExpanderStyle}" IsExpanded="{Binding IsHistoryExpanded}">
-                        <Grid>
+                        <Grid Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
@@ -310,8 +327,8 @@
  
                             <!-- Remember Last Playlist -->
                             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
-                                <Label Content="Remember last playlist" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Automatically load your last playlist on startup" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Remember last playlist" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Automatically load your last playlist on startup" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <CheckBox Grid.Row="0" Grid.Column="1" 
                                       IsChecked="{Binding RememberLastPlaylist}"
@@ -321,8 +338,8 @@
  
                             <!-- Remember File Position -->
                             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,20" VerticalAlignment="Center">
-                                <Label Content="Remember file position" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
-                                <TextBlock Text="Resume videos from where you left off" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                                <TextBlock Text="Remember file position" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Resume videos from where you left off" Style="{StaticResource CaptionText}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <CheckBox Grid.Row="1" Grid.Column="1" 
                                       IsChecked="{Binding RememberFilePosition}"
@@ -349,7 +366,7 @@
                         <StackPanel Margin="0,4">
                             <!-- Hypnotube Cookies -->
                             <StackPanel Margin="0,0,0,12">
-                                <Label Content="Hypnotube Session Cookies" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
+                                <TextBlock Text="Hypnotube Session Cookies" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
                                 <TextBlock Text="Format: PHPSESSID=xxx; other=yyy" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,8"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -394,12 +411,14 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                                <Label Content="Panic Hotkey" Foreground="{StaticResource TextPrimary}" FontSize="13" Padding="0" FontWeight="SemiBold"/>
+                                <TextBlock Text="Panic Hotkey" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
                                 <TextBlock Text="Global hotkey to stop all playback immediately" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
                             </StackPanel>
-                            <Grid Grid.Row="1">
+                            <Grid Grid.Row="1" Margin="0,0,0,24">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
@@ -412,6 +431,20 @@
                                 </StackPanel>
                                 <TextBlock Text="+" Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="5,0"/>
                                 <ComboBox Grid.Column="2" Width="100" ItemsSource="{StaticResource KeyList}" SelectedItem="{Binding PanicHotkeyKey}" Style="{StaticResource PinkComboBoxStyle}"/>
+                            </Grid>
+
+                            <!-- Triple-Press Emergency Stop (Opaque Mode) -->
+                            <StackPanel Grid.Row="2" Margin="0,0,0,16">
+                                <TextBlock Text="Triple-Press Emergency Stop (Opaque Mode)" Foreground="{StaticResource TextPrimary}" FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Press this key 3 times quickly to close all videos (Only works in Opaque Mode)" Foreground="{StaticResource TextTertiary}" FontSize="11" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <Grid Grid.Row="3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Emergency Key" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}" Margin="0,0,20,0"/>
+                                <ComboBox Grid.Column="1" Width="100" ItemsSource="{StaticResource KeyList}" SelectedItem="{Binding OpaquePanicHotkeyKey}" Style="{StaticResource PinkComboBoxStyle}"/>
                             </Grid>
                         </Grid>
                     </Expander>

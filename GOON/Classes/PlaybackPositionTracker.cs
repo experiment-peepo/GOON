@@ -74,7 +74,7 @@ namespace GOON.Classes {
                                     LastUpdated = DateTime.Now
                                 };
                             }
-                            Logger.Info($"[PositionTracker] Successfully migrated {tracker.Positions.Count} legacy positions in data directory");
+                            Logger.Debug($"[PositionTracker] Successfully saved {tracker.Positions.Count} playback positions in data directory");
                             return tracker;
                         }
                     }
@@ -146,7 +146,7 @@ namespace GOON.Classes {
                 };
             }
             
-            Logger.Info($"[PositionTracker] Updated position for {Path.GetFileName(filePath)} to {position:mm\\:ss}");
+            Logger.Debug($"[PositionTracker] Updated position for {Path.GetFileName(filePath)} to {position:mm\\:ss}");
 
             // Start timer if not running to batch saves
             if (_saveTimer != null && !_saveTimer.IsEnabled) {
@@ -202,14 +202,49 @@ namespace GOON.Classes {
 
             string key;
             try {
-                // Optimization: If path is already rooted, we might just need to normalize casing
-                // But Path.GetFullPath resolves .. and . so it's safer, but expensive.
-                // We do it ONCE per session per file now.
-                key = Path.GetFullPath(filePath).ToLowerInvariant();
-            } catch {
+                // Check if it's a URL
+                if (filePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || 
+                    filePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) {
+                    
+                    // For URLs, we don't use Path.GetFullPath. 
+                    // We just lower it and trim query parameters that look like tokens
+                    var normalized = filePath.Trim();
+                    
+                    // Improved normalization: Remove common expiring token parameters
+                    // This acts as a fallback if OriginalPageUrl wasn't correctly preserved
+                    try {
+                        if (normalized.Contains('?')) {
+                            // Regex to remove common token parameters (token, expires, sig, expire, key, etc.)
+                            // Matches ?param=value or &param=value
+                            normalized = System.Text.RegularExpressions.Regex.Replace(normalized, 
+                                @"([?&])(token|expires|sig|expire|key|st|e)=[^&]*", 
+                                "", 
+                                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+                            
+                            // Cleanup any dangling ? or & at the end, or double &&
+                            normalized = normalized.TrimEnd('?', '&');
+                            normalized = normalized.Replace("&&", "&");
+                            
+                            // If the query string is now empty or just '?', remove it?
+                            // For now, let's just ensure we don't have a trailing ?
+                            if (normalized.EndsWith("?")) normalized = normalized.Substring(0, normalized.Length - 1);
+                        }
+                    } catch (Exception ex) {
+                        Logger.Warning($"[PositionTracker] Regex normalization failed for '{filePath}': {ex.Message}");
+                    }
+
+                    key = normalized.ToLowerInvariant();
+                } else {
+                    // For local files, resolve full path and lowercase
+                    key = Path.GetFullPath(filePath).ToLowerInvariant();
+                }
+            } catch (Exception ex) {
+                Logger.Warning($"[PositionTracker] Failed to normalize path '{filePath}': {ex.Message}");
                 key = filePath.Trim().ToLowerInvariant();
             }
             
+            Logger.Debug($"[PositionTracker] Key for '{filePath}' -> '{key}'");
+
             // Store in cache
             _pathKeyCache.TryAdd(filePath, key);
             return key;

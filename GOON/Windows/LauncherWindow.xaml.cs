@@ -24,6 +24,10 @@ namespace GOON.Windows {
         }
 
         private HotkeyService _hotkeys;
+        
+        // Triple-press tracking
+        private int _opaquePanicPressCount = 0;
+        private DateTime _lastOpaquePanicTime = DateTime.MinValue;
 
 
         
@@ -37,6 +41,8 @@ namespace GOON.Windows {
             _hotkeys.Register("Panic", settings.PanicHotkeyModifiers, settings.PanicHotkeyKey ?? "End", () => {
                  App.VideoService.StopAll();
             });
+
+            _hotkeys.Register("OpaquePanic", settings.OpaquePanicHotkeyModifiers, settings.OpaquePanicHotkeyKey ?? "Escape", HandleOpaquePanic);
         }
         
         public void ReloadHotkeys() {
@@ -45,6 +51,27 @@ namespace GOON.Windows {
                 _hotkeys.Register("Panic", settings.PanicHotkeyModifiers, settings.PanicHotkeyKey ?? "End", () => {
                      App.VideoService.StopAll();
                 });
+                _hotkeys.Register("OpaquePanic", settings.OpaquePanicHotkeyModifiers, settings.OpaquePanicHotkeyKey ?? "Escape", HandleOpaquePanic);
+            }
+        }
+
+        private void HandleOpaquePanic() {
+            var settings = App.Settings;
+            if (!settings.AlwaysOpaque) return;
+
+            var now = DateTime.Now;
+            if ((now - _lastOpaquePanicTime).TotalSeconds > 1.0) {
+                _opaquePanicPressCount = 1;
+            } else {
+                _opaquePanicPressCount++;
+            }
+
+            _lastOpaquePanicTime = now;
+
+            if (_opaquePanicPressCount >= 3) {
+                Logger.Info("Emergency stop triggered by triple-press hotkey!");
+                App.VideoService.StopAll();
+                _opaquePanicPressCount = 0;
             }
         }
 

@@ -5,8 +5,8 @@ using System.Text.Json;
 namespace GOON.Classes {
 
     public class UserSettings {
-        public double Opacity { get; set; } = 0.2;
-        public double Volume { get; set; } = 0.5;
+        public virtual double Opacity { get; set; } = 0.2;
+        public virtual double Volume { get; set; } = 0.5;
 
         public bool LauncherAlwaysOnTop { get; set; } = false;
         public bool StartWithWindows { get; set; } = false;
@@ -14,26 +14,28 @@ namespace GOON.Classes {
         public double DefaultVolume { get; set; } = 0.5;
         public string DefaultMonitorDeviceName { get; set; } = null;
         public string HypnotubeCookies { get; set; } = null;
+        public string UserAgent { get; set; } = null;
+        public string Cookies { get; set; } = null;
         
         
         // Panic hotkey configuration
         // Modifiers: Ctrl=2, Shift=4, Alt=1 (can be combined with bitwise OR)
         public uint PanicHotkeyModifiers { get; set; } = 0x0002 | 0x0004; // Ctrl+Shift (default)
         public string PanicHotkeyKey { get; set; } = "End"; // Default key
-        public bool AlwaysOpaque { get; set; } = false;
+        
+        public string OpaquePanicHotkeyKey { get; set; } = "Escape";
+        public uint OpaquePanicHotkeyModifiers { get; set; } = 0; // No modifiers by default
+
+        public virtual bool AlwaysOpaque { get; set; } = false;
+        public virtual bool EnableSuperResolution { get; set; } = false;
         
         // History Settings
 
-        public bool RememberLastPlaylist { get; set; } = true;
-        public bool RememberFilePosition { get; set; } = true;
+        public virtual bool RememberLastPlaylist { get; set; } = true;
+        public virtual bool RememberFilePosition { get; set; } = true;
         public System.Collections.Generic.List<string> PlayedHistory { get; set; } = new System.Collections.Generic.List<string>();
-        public bool VideoShuffle { get; set; } = true;
+        public virtual bool VideoShuffle { get; set; } = true;
         
-        // HotScreen Integration
-        public bool EnableHotScreenIntegration { get; set; } = true;
-        public int HotScreenOffsetX { get; set; } = 0;
-        public int HotScreenOffsetY { get; set; } = 0;
-        public bool HotScreenUseClientArea { get; set; } = true;
 
         // Playlist Import Settings
         public int MaxPlaylistPages { get; set; } = 100; // Maximum pages to fetch for paginated playlists
@@ -148,16 +150,20 @@ namespace GOON.Classes {
             }
         }
 
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { 
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
         private readonly System.Threading.SemaphoreSlim _saveLock = new System.Threading.SemaphoreSlim(1, 1);
 
         public void Save() {
-            // Updated to be a synchronous wrapper around Async save for compatibility
-            // This ensures we always strictly serialize writes
             try {
                 _saveLock.Wait();
                 try {
-                    string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(SettingsFilePath, json);
+                    string json = JsonSerializer.Serialize(this, _jsonOptions);
+                    string tempPath = SettingsFilePath + ".tmp";
+                    File.WriteAllText(tempPath, json);
+                    File.Move(tempPath, SettingsFilePath, true);
                 } finally {
                     _saveLock.Release();
                 }
@@ -170,8 +176,10 @@ namespace GOON.Classes {
             try {
                 await _saveLock.WaitAsync();
                 try {
-                    string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-                    await File.WriteAllTextAsync(SettingsFilePath, json);
+                    string json = JsonSerializer.Serialize(this, _jsonOptions);
+                    string tempPath = SettingsFilePath + ".tmp";
+                    await File.WriteAllTextAsync(tempPath, json);
+                    File.Move(tempPath, SettingsFilePath, true);
                 } finally {
                     _saveLock.Release();
                 }
@@ -193,27 +201,39 @@ namespace GOON.Classes {
 
         public static string SessionFilePath => AppPaths.SessionFile;
 
+        private readonly System.Threading.SemaphoreSlim _sessionLock = new System.Threading.SemaphoreSlim(1, 1);
+
         public async System.Threading.Tasks.Task SaveSessionAsync() {
-              try {
+            try {
                 if (CurrentSessionPlaylist == null) return;
-                // Reuse the same lock or a new one? Session is a different file, so new lock is better.
-                // But typically session save is rare, so simple async write is okay.
-                // For strict safety let's just do a simple async write here.
-                string json = JsonSerializer.Serialize(CurrentSessionPlaylist, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(SessionFilePath, json);
+                await _sessionLock.WaitAsync();
+                try {
+                    string json = JsonSerializer.Serialize(CurrentSessionPlaylist, _jsonOptions);
+                    string tempPath = SessionFilePath + ".tmp";
+                    await File.WriteAllTextAsync(tempPath, json);
+                    File.Move(tempPath, SessionFilePath, true);
+                } finally {
+                    _sessionLock.Release();
+                }
             } catch (Exception ex) {
-                Logger.Warning("Failed to save session playlist", ex);
+                Logger.Warning("Failed to save session playlist (Async)", ex);
             }
         }
 
         public void SaveSession() {
-            // Keep sync method for legacy calls, but ideally migrate
-             try {
+            try {
                 if (CurrentSessionPlaylist == null) return;
-                string json = JsonSerializer.Serialize(CurrentSessionPlaylist, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(SessionFilePath, json);
+                _sessionLock.Wait();
+                try {
+                    string json = JsonSerializer.Serialize(CurrentSessionPlaylist, _jsonOptions);
+                    string tempPath = SessionFilePath + ".tmp";
+                    File.WriteAllText(tempPath, json);
+                    File.Move(tempPath, SessionFilePath, true);
+                } finally {
+                    _sessionLock.Release();
+                }
             } catch (Exception ex) {
-                Logger.Warning("Failed to save session playlist", ex);
+                Logger.Warning("Failed to save session playlist (Sync)", ex);
             }
         }
 

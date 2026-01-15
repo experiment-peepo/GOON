@@ -51,10 +51,38 @@ namespace GOON.Classes {
                 Logger.Info($"[yt-dlp] Extracting video URL: {url}");
                 
                 // Check if we should use cookies for this URL
-                OptionSet options = null;
+                OptionSet options = new OptionSet();
+                string cookieFile = null;
+                
+                try {
+                    var uri = new Uri(url);
+                    var host = uri.Host.ToLowerInvariant();
+                    
+                    if (host.Contains("hypnotube.com") && !string.IsNullOrEmpty(App.Settings?.HypnotubeCookies)) {
+                        Logger.Info($"[yt-dlp] Using Hypnotube cookies for extraction");
+                        cookieFile = CreateTempCookieFile(App.Settings.HypnotubeCookies, "hypnotube.com");
+                    } else if (!string.IsNullOrEmpty(App.Settings?.Cookies)) {
+                        // Check if global cookies contain this domain
+                        if (App.Settings.Cookies.Contains(host) || host.Split('.').Any(part => App.Settings.Cookies.Contains(part))) {
+                            Logger.Info($"[yt-dlp] Using global cookies for extraction on {host}");
+                            cookieFile = CreateTempCookieFile(App.Settings.Cookies, host);
+                        }
+                    }
+                    
+                    if (!string.IsNullOrEmpty(cookieFile) && File.Exists(cookieFile)) {
+                        options.Cookies = cookieFile;
+                    }
+                } catch (Exception ex) {
+                    Logger.Warning($"[yt-dlp] Error setting up cookies: {ex.Message}");
+                }
                 
                 var result = await _ytdl.RunVideoDataFetch(url, ct: cancellationToken, overrideOptions: options);
                 
+                // Cleanup temp cookie file
+                if (!string.IsNullOrEmpty(cookieFile) && File.Exists(cookieFile)) {
+                    try { File.Delete(cookieFile); } catch { /* ignore */ }
+                }
+
                 if (!result.Success) {
                     Logger.Warning($"[yt-dlp] Extraction failed: {result.ErrorOutput?.FirstOrDefault()}");
                     return null;

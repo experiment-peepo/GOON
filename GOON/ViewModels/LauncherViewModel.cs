@@ -117,12 +117,12 @@ namespace GOON.ViewModels {
         private CancellationTokenSource _importCts;
         private readonly SemaphoreSlim _saveSemaphore = new SemaphoreSlim(1, 1);
         private bool _isHypnotizing = false;
-        private readonly VideoUrlExtractor _urlExtractor;
+        private readonly IVideoUrlExtractor _urlExtractor;
         private readonly PlaylistImporter _playlistImporter;
 
         public LauncherViewModel() {
             _cancellationTokenSource = new CancellationTokenSource();
-            _urlExtractor = new VideoUrlExtractor();
+            _urlExtractor = App.UrlExtractor ?? new VideoUrlExtractor();
             _playlistImporter = new PlaylistImporter(_urlExtractor);
             RefreshScreens();
 
@@ -546,6 +546,11 @@ namespace GOON.ViewModels {
 
                 // Create and add video item
                 var item = new VideoItem(finalUrl, defaultScreen);
+                // CRITICAL: Set OriginalPageUrl if the input was a page URL
+                // This ensures stable position tracking even if the finalUrl is a resolved expiring link
+                if (FileValidator.IsPageUrl(inputUrl)) {
+                    item.OriginalPageUrl = inputUrl;
+                }
                 var settings = App.Settings;
                 item.Opacity = settings.DefaultOpacity;
                 item.Volume = settings.DefaultVolume;
@@ -659,6 +664,11 @@ namespace GOON.ViewModels {
 
                 foreach (var item in videoItems) {
                     var normalizedUrl = item.IsUrl ? FileValidator.NormalizeUrl(item.FilePath) : item.FilePath;
+                    
+                    // CRITICAL: Ensure OriginalPageUrl is set if it's a page URL and not already set
+                    if (item.IsUrl && string.IsNullOrEmpty(item.OriginalPageUrl) && FileValidator.IsPageUrl(item.FilePath)) {
+                         item.OriginalPageUrl = item.FilePath;
+                    }
                     if (existingPaths.Contains(normalizedUrl)) {
                         skippedCount++;
                         continue;
@@ -1193,32 +1203,40 @@ namespace GOON.ViewModels {
                             }
                             
                             // CRITICAL: Re-extract URLs from time-sensitive sites (Rule34Video, Hypnotube)
-                            // These sites use time-limited URLs that expire, so we need fresh extraction
+                            // OPTIMIZATION: Use PersistentUrlCache or JIT resolution avoids startup delay.
                             if (videoItem.IsUrl && NeedsReExtraction(item.FilePath)) {
-                                Logger.Info($"LoadSession: Detected time-sensitive URL for '{videoItem.FileName}', attempting re-extraction...");
                                 try {
-                                    // Use stored OriginalPageUrl if available, otherwise try to reconstruct
                                     var pageUrl = !string.IsNullOrEmpty(item.OriginalPageUrl) 
                                         ? item.OriginalPageUrl 
                                         : GetOriginalPageUrl(item.FilePath);
+
                                     if (!string.IsNullOrEmpty(pageUrl)) {
-                                        Logger.Info($"LoadSession: Re-extracting from page URL: {pageUrl}");
-                                        var freshUrl = await _urlExtractor.ExtractVideoUrlAsync(pageUrl, cancellationToken);
-                                        if (!string.IsNullOrEmpty(freshUrl)) {
-                                            Logger.Info($"LoadSession: Successfully re-extracted URL: {freshUrl}");
-                                            // Create a new VideoItem with the fresh URL
-                                            videoItem = new VideoItem(freshUrl, screen);
+                                        // Try to get from persistent cache first (Instant)
+                                        var cachedUrl = PersistentUrlCache.Instance.Get(pageUrl);
+                                        
+                                        if (!string.IsNullOrEmpty(cachedUrl)) {
+                                            Logger.Info($"LoadSession: Found valid cached URL for '{videoItem.FileName}'");
+                                            videoItem = new VideoItem(cachedUrl, screen);
                                             videoItem.Opacity = item.Opacity;
                                             videoItem.Volume = item.Volume;
                                             videoItem.Title = item.Title;
-                                        } else {
-                                            Logger.Warning($"LoadSession: Re-extraction failed, using original URL (may be expired)");
+                                            videoItem.OriginalPageUrl = pageUrl;
+                                        } 
+                                        else {
+                                            // JIT Strategy: Set FilePath to the Page URL.
+                                            // HypnoViewModel.LoadCurrentVideo will detect it's a Page URL and resolve it when played.
+                                            Logger.Info($"LoadSession: Deferring resolution for '{videoItem.FileName}' to Playback (JIT)");
+                                            videoItem = new VideoItem(pageUrl, screen);
+                                            videoItem.Opacity = item.Opacity;
+                                            videoItem.Volume = item.Volume;
+                                            videoItem.Title = item.Title;
+                                            videoItem.OriginalPageUrl = pageUrl;
                                         }
                                     } else {
-                                        Logger.Warning($"LoadSession: Could not determine original page URL, using saved URL (may be expired)");
+                                        Logger.Warning($"LoadSession: Could not determine original page URL for '{videoItem.FileName}', keeping generic/expired URL.");
                                     }
                                 } catch (Exception ex) {
-                                    Logger.Warning($"LoadSession: Re-extraction error: {ex.Message}, using original URL");
+                                    Logger.Warning($"LoadSession: JIT/Cache setup error: {ex.Message}, using saved URL");
                                 }
                             }
                             

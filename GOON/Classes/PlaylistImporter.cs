@@ -14,10 +14,10 @@ namespace GOON.Classes {
     /// Service for importing playlists from supported video sites
     /// </summary>
     public class PlaylistImporter {
-        private readonly VideoUrlExtractor _urlExtractor;
+        private readonly IVideoUrlExtractor _urlExtractor;
         private readonly IHtmlFetcher _htmlFetcher;
 
-        public PlaylistImporter(VideoUrlExtractor urlExtractor, IHtmlFetcher htmlFetcher = null) {
+        public PlaylistImporter(IVideoUrlExtractor urlExtractor, IHtmlFetcher htmlFetcher = null) {
             _urlExtractor = urlExtractor ?? throw new ArgumentNullException(nameof(urlExtractor));
             _htmlFetcher = htmlFetcher ?? new StandardHtmlFetcher();
         }
@@ -55,6 +55,7 @@ namespace GOON.Classes {
                 } else if (host.Contains("pmvhaven.com")) {
                     videoPageUrls = await ExtractPmvHavenPlaylistAsync(playlistUrl, cancellationToken);
                 } else if (host.Contains("redgifs.com")) {
+                    Logger.Info($"[PlaylistImporter] Detected RedGifs URL: {playlistUrl}");
                     videoPageUrls = await ExtractRedgifsPlaylistAsync(playlistUrl, cancellationToken);
                 } else {
                     // Generic extraction
@@ -184,8 +185,7 @@ namespace GOON.Classes {
             try {
                 Logger.Info($"[RedGifs] Starting playlist extraction for {url}");
 
-                // Extract username
-                // Pattern: /users/username
+                // Match the last part of the URL (either display name or ID)
                 var uri = new Uri(url);
                 var usernameMatch = Regex.Match(uri.AbsolutePath, @"/users/([^/?&]+)", RegexOptions.IgnoreCase);
                 if (!usernameMatch.Success) {
@@ -193,53 +193,91 @@ namespace GOON.Classes {
                     return videoUrls;
                 }
                 var username = usernameMatch.Groups[1].Value;
-                Logger.Info($"[RedGifs] Extracted username: {username}");
+                Logger.Info($"[RedGifs] Extracted username from URL: {username}");
 
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
 
                 // 1. Get temp token
-                // Reusing the same auth logic as VideoUrlExtractor
                 var authResponse = await httpClient.GetStringAsync("https://api.redgifs.com/v2/auth/temporary");
                 var tokenMatch = Regex.Match(authResponse, @"""token""\s*:\s*""([^""]+)""");
                 if (!tokenMatch.Success) {
-                    Logger.Warning("[RedGifs] Failed to extract auth token");
+                    // Try alternative pattern if direct match fails
+                    tokenMatch = Regex.Match(authResponse, @"access_token""\s*:\s*""([^""]+)""");
+                }
+
+                if (!tokenMatch.Success) {
+                    Logger.Warning($"[RedGifs] Failed to extract auth token from: {authResponse.Substring(0, Math.Min(authResponse.Length, 100))}");
                     return videoUrls;
                 }
                 var token = tokenMatch.Groups[1].Value;
 
                 // 2. Fetch User GIFs
-                // Using search endpoint to sort by new, getting up to 100 items
+                // We'll try the username first, then if it fails or returns 0, we could potentially try to find the real ID from the page
                 var apiUrl = $"https://api.redgifs.com/v2/users/{username}/search?order=new&count=100";
                 var request = new HttpRequestMessage(HttpMethod.Get, apiUrl);
                 request.Headers.Add("Authorization", $"Bearer {token}");
 
                 var response = await httpClient.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode) {
-                    Logger.Warning($"[RedGifs] API failed with status: {response.StatusCode}");
+                    Logger.Warning($"[RedGifs] API failed for {username} with status: {response.StatusCode}");
                     return videoUrls;
                 }
                 
                 var json = await response.Content.ReadAsStringAsync();
                 
-                // 3. Extract IDs
-                // Response has a "gifs" array. We scan for "id":"..." pattern which is robust enough for this API.
-                // We'll filter out duplicates.
-                var idMatches = Regex.Matches(json, @"""id""\s*:\s*""([^""]+)""");
+                // 3. Extract IDs - Safely parse JSON to isolate the 'gifs' array
                 var uniqueIds = new HashSet<string>();
-                
-                foreach (Match match in idMatches) {
-                    if (match.Success && match.Groups.Count > 1) {
-                        var id = match.Groups[1].Value;
-                        if (!string.IsNullOrEmpty(id) && id.Length > 5 && !uniqueIds.Contains(id)) {
-                             uniqueIds.Add(id);
-                             // Construct the watch URL which the VideoUrlExtractor knows how to handle
-                             videoUrls.Add($"https://www.redgifs.com/watch/{id}");
+                try {
+                    using (JsonDocument doc = JsonDocument.Parse(json)) {
+                        if (doc.RootElement.TryGetProperty("gifs", out JsonElement gifsElement) && 
+                            gifsElement.ValueKind == JsonValueKind.Array) {
+                            
+                            foreach (JsonElement gif in gifsElement.EnumerateArray()) {
+                                if (gif.TryGetProperty("id", out JsonElement idElement)) {
+                                    string id = idElement.GetString();
+                                    if (!string.IsNullOrEmpty(id) && !uniqueIds.Contains(id)) {
+                                        uniqueIds.Add(id);
+                                        videoUrls.Add($"https://www.redgifs.com/watch/{id}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception jsonEx) {
+                    Logger.Warning($"[RedGifs] JSON parsing failed: {jsonEx.Message}. Falling back to regex...");
+                    // Emergency regex fallback if JSON is malformed
+                    var idMatches = Regex.Matches(json, @"""id""\s*:\s*""([^""]+)""");
+                    foreach (Match match in idMatches) {
+                        if (match.Success && match.Groups.Count > 1) {
+                            var id = match.Groups[1].Value;
+                            if (!string.IsNullOrEmpty(id) && !uniqueIds.Contains(id)) {
+                                uniqueIds.Add(id);
+                                videoUrls.Add($"https://www.redgifs.com/watch/{id}");
+                            }
                         }
                     }
                 }
 
-                Logger.Info($"[RedGifs] Extracted {videoUrls.Count} videos for user {username}");
+                if (videoUrls.Count == 0) {
+                    Logger.Info($"[RedGifs] No videos found for {username} via API. Attempting HTML fallback...");
+                    // Fallback to HTML extraction if API returns nothing (e.g. if username differs from profile URL)
+                    var html = await response.Content.ReadAsStringAsync(); // Reuse response or fetch fresh?
+                    // Fetch fresh HTML from the user profile page directly
+                    var profileHtml = await httpClient.GetStringAsync(url);
+                    // Extract IDs from thumbnail sources (as found by browser subagent)
+                    var thumbPattern = @"media\.redgifs\.com/([^""'-]+)-mobile\.jpg";
+                    var thumbMatches = Regex.Matches(profileHtml, thumbPattern, RegexOptions.IgnoreCase);
+                    foreach (Match m in thumbMatches) {
+                        var id = m.Groups[1].Value;
+                        if (!uniqueIds.Contains(id)) {
+                            uniqueIds.Add(id);
+                            videoUrls.Add($"https://www.redgifs.com/watch/{id}");
+                        }
+                    }
+                }
+
+                Logger.Info($"[RedGifs] Total extracted {videoUrls.Count} videos for user {username}");
                 return videoUrls;
 
             } catch (Exception ex) {
@@ -421,63 +459,53 @@ namespace GOON.Classes {
             var videoUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try {
-                Logger.Info("[Rule34Video] Starting link extraction");
+                Logger.Info("[Rule34Video] Starting link extraction with HtmlAgilityPack");
                 
-                // Excluded extensions (Rule34Video doesn't use .html)
-                var excludedExtensions = new[] { 
-                    ".css", ".jpg", ".jpeg", ".png", ".gif", ".js", ".json", ".xml", ".ico", 
-                    ".svg", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".rar", 
-                    ".txt", ".md", ".webp", ".bmp", ".tiff"
-                };
+                var doc = new HtmlDocument();
+                doc.LoadHtml(html);
 
-                // Method 1: Direct pattern for Rule34Video video URLs
-                // Pattern: /videos/[numeric_id]/[slug]
-                var videoPattern = @"href\s*=\s*[""']([^""']*/videos?/\d+[^""']*)[""']";
-                var videoMatches = Regex.Matches(html, videoPattern, RegexOptions.IgnoreCase);
-                
-                Logger.Info($"[Rule34Video] Found {videoMatches.Count} potential video links with direct pattern");
-                
-                foreach (Match match in videoMatches) {
-                    if (match.Success && match.Groups.Count > 1) {
-                        var href = match.Groups[1].Value;
-                        var resolvedUrl = ResolveUrl(href, baseUrl);
-                        
-                        if (resolvedUrl != null && IsRule34VideoPageUrl(resolvedUrl)) {
-                            videoUrls.Add(resolvedUrl);
+                // Find the h2 header that contains 'Videos' to identify the uploads section
+                // Then find the first .thumbs container following it.
+                var headerNode = doc.DocumentNode.SelectSingleNode("//h2[contains(., 'Videos')]");
+                HtmlNode mainThumbs = null;
+
+                if (headerNode != null) {
+                    mainThumbs = headerNode.SelectSingleNode("./following::div[contains(@class, 'thumbs')][1]");
+                    if (mainThumbs != null) {
+                        Logger.Info("[Rule34Video] Successfully isolated the 'Videos' container.");
+                    }
+                }
+
+                // Fallback to the very first .thumbs if header-based selection failed
+                if (mainThumbs == null) {
+                    var contentArea = doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'content_general')]") ?? doc.DocumentNode;
+                    mainThumbs = contentArea.SelectSingleNode(".//div[contains(@class, 'thumbs')]");
+                }
+
+                if (mainThumbs != null) {
+                    var links = mainThumbs.SelectNodes(".//a[contains(@href, '/video/')]");
+                    if (links != null) {
+                        Logger.Info($"[Rule34Video] Found {links.Count} videos in targeted container.");
+                        foreach (var link in links) {
+                            var href = link.GetAttributeValue("href", "");
+                            var resolvedUrl = ResolveUrl(href, baseUrl);
+                            if (resolvedUrl != null && IsRule34VideoPageUrl(resolvedUrl)) {
+                                videoUrls.Add(resolvedUrl);
+                            }
                         }
                     }
                 }
-                
-                // Method 2: Fallback - generic link extraction if method 1 finds nothing
-                if (videoUrls.Count == 0) {
-                    Logger.Info("[Rule34Video] Direct pattern found nothing, trying generic link extraction");
-                    
-                    var linkPattern = @"<a[^>]*href\s*=\s*[""']([^""']+)[""'][^>]*>";
-                    var linkMatches = Regex.Matches(html, linkPattern, RegexOptions.IgnoreCase);
 
-                    foreach (Match match in linkMatches) {
+                // If nothing found, one last attempt at regex but with a stricter pattern to avoid favorites
+                if (videoUrls.Count == 0 && !html.Contains("'s Favorites")) {
+                    Logger.Info("[Rule34Video] No containers found, using strict regex fallback (no favorites on page)");
+                    var videoPattern = @"href\s*=\s*[""']([^""']*/videos?/\d+[^""']*)[""']";
+                    var videoMatches = Regex.Matches(html, videoPattern, RegexOptions.IgnoreCase);
+                    
+                    foreach (Match match in videoMatches) {
                         if (match.Success && match.Groups.Count > 1) {
                             var href = match.Groups[1].Value;
-                            
-                            // Pre-filter: exclude URLs with non-video extensions
-                            try {
-                                var testUri = ResolveUrl(href, baseUrl);
-                                if (testUri != null && Uri.TryCreate(testUri, UriKind.Absolute, out Uri uri)) {
-                                    var path = uri.AbsolutePath.ToLowerInvariant();
-                                    if (excludedExtensions.Any(ext => path.EndsWith(ext))) {
-                                        continue;
-                                    }
-                                } else if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                    continue;
-                                }
-                            } catch {
-                                if (excludedExtensions.Any(ext => href.ToLowerInvariant().EndsWith(ext))) {
-                                    continue;
-                                }
-                            }
-                            
                             var resolvedUrl = ResolveUrl(href, baseUrl);
-                            
                             if (resolvedUrl != null && IsRule34VideoPageUrl(resolvedUrl)) {
                                 videoUrls.Add(resolvedUrl);
                             }
@@ -1058,17 +1086,61 @@ namespace GOON.Classes {
         /// Returns null if no next page found or if we should stop pagination
         /// </summary>
         private string ExtractNextPageUrl(string html, string currentUrl, string domain) {
-            if (string.IsNullOrWhiteSpace(html) || string.IsNullOrWhiteSpace(currentUrl)) return null;
+            if (string.IsNullOrWhiteSpace(html)) return null;
             
             try {
+                Logger.Info($"[Pagination] Extracting from {currentUrl} (domain: {domain}, HTML: {html.Length} chars)");
                 if (!Uri.TryCreate(currentUrl, UriKind.Absolute, out Uri currentUri)) return null;
                 
                 var basePath = currentUri.AbsolutePath;
                 var query = currentUri.Query;
                 
+                // Strategy 0: Rule34Video AJAX pagination (supports manual query params)
+                if (domain.Contains("rule34video.com", StringComparison.OrdinalIgnoreCase)) {
+                    bool isMember = currentUrl.Contains("/members/");
+                    bool isPlaylist = currentUrl.Contains("/playlists/");
+
+                    if (isMember || isPlaylist) {
+                        Logger.Info($"[Pagination] Rule34Video Strategy 0 (AJAX) check. URL: {currentUrl}");
+                        
+                        // Rule34Video uses different parameter names depending on page type
+                        string paramName = isMember ? "from_videos" : "from";
+                        string dataKey = isMember ? "from_videos" : "from";
+
+                        // Look for 'pager next' with data-parameters
+                        // Matches both from: and from_videos: patterns
+                        var nextLinkMatch = Regex.Match(html, @"pager\s+next[^>]*>.*?data-parameters=""[^""]*?" + dataKey + @":(\d+)""", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+                        
+                        if (nextLinkMatch.Success) {
+                            int nextOffset = int.Parse(nextLinkMatch.Groups[1].Value);
+                            var baseUri = currentUrl.Split('?')[0];
+                            var finalNext = $"{baseUri}?{paramName}={nextOffset}";
+                            
+                            Logger.Info($"[Pagination] SUCCESS: Detected AJAX pagination for Rule34Video. Target offset: {nextOffset}. URL: {finalNext}");
+                            return finalNext;
+                        }
+
+                        // Fallback: If no explicit 'next' pager, look for any page link with an offset higher than current
+                        var currentFromMatch = Regex.Match(currentUrl, paramName + @"=(\d+)");
+                        int currentFromValue = currentFromMatch.Success ? int.Parse(currentFromMatch.Groups[1].Value) : 1;
+                        
+                        var anyPageMatch = Regex.Matches(html, dataKey + @":(\d+)");
+                        foreach (Match m in anyPageMatch) {
+                            int offset = int.Parse(m.Groups[1].Value);
+                            if (offset > currentFromValue) {
+                                var baseUri = currentUrl.Split('?')[0];
+                                var finalNext = $"{baseUri}?{paramName}={offset}";
+                                Logger.Info($"[Pagination] SUCCESS: Following non-pager link to offset {offset}. URL: {finalNext}");
+                                return finalNext;
+                            }
+                        }
+                    }
+                }
+
                 // Strategy 1: Look for "next" link in pagination
                 var nextLinkPatterns = new[] {
-                    @"<a[^>]+href\s*=\s*[""']([^""']+)[""'][^>]*>(?:(?!</a>).)*?\s*(?:next|>|»)\s*<",
+                    @"<a[^>]+href\s*=\s*[""']([^""']+)[""'][^>]*>(?:(?!</a>).)*?\s*(?:next|>|»|fa-chevron-right|chevron-right)\s*<",
+                    @"<a[^>]+href\s*=\s*[""']([^""']+)[""'][^>]*>(?:(?!</a>).)*?chevron(?:(?!</a>).)*?</a>",
                     @"rel\s*=\s*[""']next[""'][^>]*href\s*=\s*[""']([^""']+)[""']",
                     @"href\s*=\s*[""']([^""']+)[""'][^>]*rel\s*=\s*[""']next[""']",
                 };
@@ -1082,6 +1154,15 @@ namespace GOON.Classes {
                             var normalizedNextPath = nextUri.AbsolutePath.TrimEnd('/');
                             var normalizedBasePath = basePath.TrimEnd('/');
                             
+                            // Rule34Video specific: don't follow favorites pagination
+                            if (domain.Contains("rule34video.com", StringComparison.OrdinalIgnoreCase)) {
+                                if (nextUrl.Contains("#fav_videos", StringComparison.OrdinalIgnoreCase) || 
+                                    normalizedNextPath.Contains("/favourites/", StringComparison.OrdinalIgnoreCase)) {
+                                    Logger.Info($"[Pagination] Rejecting favorites-related URL on Rule34Video: {resolved}");
+                                    continue;
+                                }
+                            }
+
                             // Reject if it's the homepage or root path
                             if (string.IsNullOrEmpty(normalizedNextPath) || normalizedNextPath == "/") {
                                 Logger.Info($"[Pagination] Rejecting root URL as next page: {resolved}");

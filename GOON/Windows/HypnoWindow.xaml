@@ -15,34 +15,49 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:GOON.Windows"
+        xmlns:flyleaf="clr-namespace:FlyleafLib.Controls.WPF;assembly=FlyleafLib.Controls.WPF"
         mc:Ignorable="d"
         Title="GOØN" Height="450" Width="800"
         WindowStyle="None" WindowState="Normal" Topmost="True"
         ResizeMode="NoResize"
         WindowStartupLocation="Manual"
-        Background="{x:Null}"
+        Background="Black"
         AllowsTransparency="True"
         Opacity="{Binding Opacity}" 
         Icon="pack://application:,,,/Images/icon.ico"
         SourceInitialized="Window_SourceInitialized">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
     <Grid>
-        <MediaElement 
+        <flyleaf:FlyleafD3DImage 
             IsHitTestVisible="False"
             x:Name="FirstVideo"
-            Source="{Binding CurrentSource}"
-            Stretch="Uniform"
-            LoadedBehavior="Manual"
-            UnloadedBehavior="Manual"
-            MediaEnded="FirstVideo_MediaEnded"
-            MediaFailed="FirstVideo_MediaFailed"
-            MediaOpened="FirstVideo_MediaOpened"
-            Volume="{Binding ActualVolume}"
-            ScrubbingEnabled="False"
-            RenderOptions.BitmapScalingMode="LowQuality">
-        </MediaElement>
+            Player="{Binding Player}"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            Stretch="Uniform">
+        </flyleaf:FlyleafD3DImage>
 
         <!-- Tint Overlay (Immersion) -->
         <Border x:Name="TintOverlay" Background="Transparent" IsHitTestVisible="False"/>
+
+        <!-- Telemetry Overlay -->
+        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10" Padding="5" IsHitTestVisible="False" Opacity="0.5">
+            <StackPanel Orientation="Vertical">
+                <TextBlock Text="{Binding Player.Video.ClockDriftMs, StringFormat='Drift: {0}ms'}" FontSize="10" Foreground="White" 
+                           Visibility="{Binding Player.Config.Player.Stats, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <TextBlock Text="{Binding Player.Video.D3DImageLatencyMs, StringFormat='D3D: {0:F1}ms'}" FontSize="10" Foreground="White"
+                           Visibility="{Binding Player.Config.Player.Stats, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                <TextBlock Text="✦ AI Enhanced" FontSize="11" FontWeight="SemiBold" Foreground="#00FF99" 
+                           Visibility="{Binding Player.Renderer.SuperResolution, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           Margin="0,2,0,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#00FF99" BlurRadius="4" ShadowDepth="0" Opacity="0.5"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </StackPanel>
+        </Border>
 
         <!-- Controls Removed as per user request -->
     </Grid>

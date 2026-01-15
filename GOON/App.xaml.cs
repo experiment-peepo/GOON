@@ -21,34 +21,24 @@ namespace GOON {
         public static VideoPlayerService VideoService => ServiceContainer.TryGet<VideoPlayerService>(out var service) ? service : null;
         public static UserSettings Settings => ServiceContainer.TryGet<UserSettings>(out var settings) ? settings : null;
         public static HotkeyService Hotkeys => ServiceContainer.TryGet<HotkeyService>(out var hotkeys) ? hotkeys : null;
-        public static UrlCacheService UrlCache => ServiceContainer.TryGet<UrlCacheService>(out var urlCache) ? urlCache : null;
+
         public static TelemetryService Telemetry => ServiceContainer.TryGet<TelemetryService>(out var telemetry) ? telemetry : null;
+        public static IVideoUrlExtractor UrlExtractor => ServiceContainer.TryGet<IVideoUrlExtractor>(out var extractor) ? extractor : null;
 
         protected override void OnStartup(StartupEventArgs e) {
-            
-            // Add global exception handlers BEFORE anything else
+            // 1. Add global exception handlers FIRST so we can catch initialization crashes
             this.DispatcherUnhandledException += (s, args) => {
                 try {
-                    // Log the full technical details
                     Classes.Logger.Error("Unhandled exception in UI thread", args.Exception);
                     Console.Error.WriteLine($"Unhandled Exception: {args.Exception}");
 
-                    // Show user-friendly message
                     var userMessage = "An unexpected error occurred in the application.\n\n" +
-                                     "The error details have been logged. If this problem persists, " +
-                                     "please check the application logs or contact support.";
+                                     args.Exception.Message + "\n\n" +
+                                     "The error details have been logged.";
                     
-                    MessageBox.Show(userMessage, 
-                        "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(userMessage, "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     args.Handled = true;
-                } catch (Exception handlerEx) {
-                    // If exception handler itself throws, log it but don't rethrow
-                    // This prevents infinite exception loops
-                    try {
-                        Logger.Error("Exception in DispatcherUnhandledException handler", handlerEx);
-                    } catch {
-                        // If logging fails, silently ignore to prevent further issues
-                    }
+                } catch {
                     args.Handled = true;
                 }
             };
@@ -56,27 +46,40 @@ namespace GOON {
             AppDomain.CurrentDomain.UnhandledException += (s, args) => {
                 try {
                     var ex = args.ExceptionObject as Exception;
-                    // Log the full technical details
                     Logger.Error("Fatal unhandled exception", ex);
-                    Console.Error.WriteLine($"Fatal Exception: {ex}");
-
-                    // Show user-friendly message
-                    var userMessage = "A critical error occurred and the application needs to close.\n\n" +
-                                     "The error details have been logged. Please check the application logs " +
-                                     "for more information.";
-                    
-                    MessageBox.Show(userMessage, 
-                        "Critical Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                } catch (Exception handlerEx) {
-                    // If exception handler itself throws, log it but don't rethrow
-                    // This prevents issues during application shutdown
-                    try {
-                        Logger.Error("Exception in UnhandledException handler", handlerEx);
-                    } catch {
-                        // If logging fails, silently ignore to prevent further issues
-                    }
-                }
+                    MessageBox.Show("A critical error occurred: " + ex?.Message, "Critical Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                } catch { }
             };
+
+            // 1.5. Rotate logs if too large (20MB)
+            Classes.Logger.CheckAndRotateLogFile(20 * 1024 * 1024);
+
+            // 2. Initialize Flyleaf Engine with robust paths and detailed logging
+            try {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string ffmpegPath = System.IO.Path.Combine(baseDir, "FFmpeg");
+                string pluginsPath = System.IO.Path.Combine(baseDir, "Plugins");
+
+                // Redirect Flyleaf logs to our application logger
+                FlyleafLib.Logger.CustomOutput = (msg) => {
+                    Classes.Logger.Info(msg);
+                };
+
+                FlyleafLib.Engine.Start(new FlyleafLib.EngineConfig() {
+                    FFmpegPath = ffmpegPath,
+                    PluginsPath = pluginsPath,
+                    UIRefresh = true,
+                    LogLevel = FlyleafLib.LogLevel.Info,
+                    LogOutput = ":custom",
+                    FFmpegLogLevel = Flyleaf.FFmpeg.LogLevel.Warn
+                });
+            } catch (Exception ex) {
+                Logger.Error("Failed to initialize Flyleaf Engine", ex);
+                MessageBox.Show("Failed to initialize Video Engine:\n" + ex.Message, "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // We should probably exit if the engine fails to start
+                this.Shutdown();
+                return;
+            }
             
             // Register Services
             ServiceContainer.Register(UserSettings.Load());
@@ -92,9 +95,12 @@ namespace GOON {
 
             ServiceContainer.Register(new VideoPlayerService());
             ServiceContainer.Register(new HotkeyService());
-            ServiceContainer.Register(new UrlCacheService());
+            var ytDlpService = new YtDlpService();
+            ServiceContainer.Register(ytDlpService);
+
+            ServiceContainer.Register<IVideoUrlExtractor>(new VideoUrlExtractor(null, ytDlpService));
+
             ServiceContainer.Register(new TelemetryService());
-            ServiceContainer.Register(new YtDlpService());
 
             // Cleanup old cached videos (10+ days old) in background
             System.Threading.Tasks.Task.Run(() => {
@@ -115,6 +121,9 @@ namespace GOON {
             if (ServiceContainer.TryGet<VideoPlayerService>(out var videoService)) {
                 videoService.StopAll();
             }
+
+            // SESSION RESUME: Final save of positions
+            PlaybackPositionTracker.Instance.SaveSync();
 
             // Ensure hotkeys are unregistered
             if (ServiceContainer.TryGet<HotkeyService>(out var hotkeyService)) {

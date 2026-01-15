@@ -14,87 +14,78 @@ namespace GOON.Classes {
     /// <summary>
     /// Service for extracting direct video URLs from page URLs
     /// </summary>
-    public class VideoUrlExtractor {
+    public class VideoUrlExtractor : IVideoUrlExtractor {
         private readonly IHtmlFetcher _htmlFetcher;
-        private readonly LruCache<string, string> _urlCache;
+        // private readonly LruCache<string, string> _urlCache; // Replaced by PersistentUrlCache
         private readonly YtDlpService _ytDlpService;
 
         public VideoUrlExtractor(IHtmlFetcher htmlFetcher = null, YtDlpService ytDlpService = null) {
             _htmlFetcher = htmlFetcher ?? new StandardHtmlFetcher();
             _ytDlpService = ytDlpService ?? (ServiceContainer.TryGet<YtDlpService>(out var service) ? service : null);
-            var ttl = TimeSpan.FromMinutes(Constants.UrlCacheTtlMinutes);
-            _urlCache = new LruCache<string, string>(Constants.MaxFileCacheSize, ttl);
+            // _urlCache = new LruCache<string, string>(Constants.MaxFileCacheSize, ttl);
         }
 
-        /// <summary>
-        /// Extracts a direct video URL from a page URL
-        /// </summary>
-        /// <param name="pageUrl">The page URL to extract from</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>The direct video URL, or null if extraction failed</returns>
-        /// <summary>
-        /// Extracts both direct video URL and title in a single pass (optimized for performance)
-        /// </summary>
-        public async Task<VideoMetadata> ExtractVideoMetadataAsync(string pageUrl, CancellationToken cancellationToken = default) {
+        public virtual async Task<VideoMetadata> ExtractVideoMetadataAsync(string pageUrl, CancellationToken cancellationToken = default) {
             if (string.IsNullOrWhiteSpace(pageUrl)) return new VideoMetadata();
             
             var normalizedUrl = FileValidator.NormalizeUrl(pageUrl);
             var uri = new Uri(normalizedUrl);
             var host = uri.Host.ToLowerInvariant();
             
-            // If it's already a direct video URL, we still might need a title, but usually it's just the filename
             if (Constants.VideoExtensions.Any(ext => uri.AbsolutePath.EndsWith(ext, StringComparison.OrdinalIgnoreCase))) {
                 return new VideoMetadata(normalizedUrl, Path.GetFileNameWithoutExtension(uri.AbsolutePath), normalizedUrl);
             }
 
-            // Check cache for URL first to save time
-            if (_urlCache.TryGetValue(pageUrl, out string cachedUrl)) {
-                // We still need to fetch for Title unless we also cache that. 
-                // For now, let's proceed to fetch once if not fully cached.
+            // Check Persistent Cache
+            var cachedUrl = PersistentUrlCache.Instance.Get(pageUrl);
+            if (!string.IsNullOrEmpty(cachedUrl)) {
+                 // We have the URL, but maybe not the title. 
+                 // Optimization: If we have a cached URL, return it immediately with a placeholder or cached title if we had it.
+                 // For now, we accept fetching HTML just for title if needed, OR we could skip title fetch if performance is key.
+                 // Let's assume title is less critical or we can extract it from the cached URL if possible.
+                 // But wait, ExtractVideoMetadataAsync is often called when adding a NEW video.
+                 // If we reload from session, we use ExtractVideoUrlAsync (JIT).
+                 // So this method is mostly for "Add URL". We *do* want the title then.
+                 // But if we already cached it, we might skip the heavy lifting of video extraction.
             }
 
             try {
-                // Fetch HTML ONCE
+                // Fetch HTML
                 var html = await FetchHtmlAsync(normalizedUrl, cancellationToken);
                 if (string.IsNullOrWhiteSpace(html)) return new VideoMetadata();
 
-                // Extract URL (using same logic as ExtractVideoUrlAsync but with local HTML)
                 string videoUrl = null;
                 string title = null;
-                
-                // For Rule34Video, we MUST use yt-dlp - custom scraper URLs require Referer headers
-                // that MediaElement can't send. Only yt-dlp URLs with download=true work.
-                if (host.Contains("rule34video.com")) {
-                    if (_ytDlpService != null && _ytDlpService.IsAvailable) {
-                        try {
-                            Logger.Info($"[VideoUrlExtractor] Using yt-dlp extraction for Rule34Video: {normalizedUrl}");
-                            videoUrl = await _ytDlpService.GetBestVideoUrlAsync(normalizedUrl, cancellationToken);
-                            if (!string.IsNullOrEmpty(videoUrl)) {
-                                Logger.Info($"[VideoUrlExtractor] yt-dlp extraction successful for Rule34Video");
-                            } else {
-                                Logger.Warning($"[VideoUrlExtractor] yt-dlp returned no result for Rule34Video");
-                            }
-                        } catch (Exception ex) {
-                            Logger.Warning($"[VideoUrlExtractor] yt-dlp failed for Rule34Video: {ex.Message}");
-                        }
-                    } else {
-                        Logger.Warning($"[VideoUrlExtractor] yt-dlp not available for Rule34Video");
-                    }
-                } else if (host.Contains("pmvhaven.com")) {
-                    videoUrl = await ExtractPmvHavenUrlAsync(normalizedUrl, cancellationToken);
-                } else if (host.Contains("hypnotube.com")) {
-                    videoUrl = await ExtractHypnotubeUrlAsync(normalizedUrl, cancellationToken);
-                } else if (host.Contains("redgifs.com")) {
-                    videoUrl = await ExtractRedgifsUrlAsync(normalizedUrl, cancellationToken);
+
+                // Use cached URL if available, otherwise extract
+                if (!string.IsNullOrEmpty(cachedUrl)) {
+                    videoUrl = cachedUrl;
                 } else {
-                    videoUrl = await ExtractGenericVideoUrlAsync(normalizedUrl, cancellationToken);
+                    // Extraction logic...
+                    if (host.Contains("rule34video.com")) {
+                        if (_ytDlpService != null && _ytDlpService.IsAvailable) {
+                            try {
+                                Logger.Info($"[VideoUrlExtractor] Using yt-dlp extraction for Rule34Video: {normalizedUrl}");
+                                videoUrl = await _ytDlpService.GetBestVideoUrlAsync(normalizedUrl, cancellationToken);
+                            } catch (Exception ex) {
+                                Logger.Warning($"[VideoUrlExtractor] yt-dlp failed for Rule34Video: {ex.Message}");
+                            }
+                        }
+                    } else if (host.Contains("pmvhaven.com")) {
+                        videoUrl = await ExtractPmvHavenUrlAsync(normalizedUrl, cancellationToken);
+                    } else if (host.Contains("hypnotube.com")) {
+                        videoUrl = await ExtractHypnotubeUrlAsync(normalizedUrl, cancellationToken);
+                    } else if (host.Contains("redgifs.com")) {
+                        videoUrl = await ExtractRedgifsUrlAsync(normalizedUrl, cancellationToken);
+                    } else {
+                        videoUrl = await ExtractGenericVideoUrlAsync(normalizedUrl, cancellationToken);
+                    }
                 }
 
-                // Extract Title from the SAME HTML
                 if (string.IsNullOrEmpty(title)) title = ExtractTitleFromHtml(html, host);
                 
                 if (videoUrl != null) {
-                    _urlCache.Set(pageUrl, videoUrl);
+                    PersistentUrlCache.Instance.Set(pageUrl, videoUrl);
                 }
 
                 return new VideoMetadata(videoUrl, title, normalizedUrl);
@@ -104,31 +95,27 @@ namespace GOON.Classes {
             }
         }
 
-        public async Task<string> ExtractVideoUrlAsync(string pageUrl, CancellationToken cancellationToken = default) {
+        public virtual async Task<string> ExtractVideoUrlAsync(string pageUrl, CancellationToken cancellationToken = default) {
             if (string.IsNullOrWhiteSpace(pageUrl)) return null;
             
-            // Check cache first
-            if (_urlCache.TryGetValue(pageUrl, out string cachedUrl)) {
+            // Check Persistent Cache first
+            var cachedUrl = PersistentUrlCache.Instance.Get(pageUrl);
+            if (!string.IsNullOrEmpty(cachedUrl)) {
+                Logger.Info($"[VideoUrlExtractor] Cache HIT for {pageUrl}");
                 return cachedUrl;
             }
 
             try {
-                // Normalize URL
                 var normalizedUrl = FileValidator.NormalizeUrl(pageUrl);
-                
-                // Determine site and extract accordingly
                 var uri = new Uri(normalizedUrl);
                 var host = uri.Host.ToLowerInvariant();
                 
-                // If it's already a direct video URL, return it immediately
                 if (Constants.VideoExtensions.Any(ext => uri.AbsolutePath.EndsWith(ext, StringComparison.OrdinalIgnoreCase))) {
                     return normalizedUrl;
                 }
                 
                 string videoUrl = null;
                 
-                // specialized scrapers (faster). Use yt-dlp for cloud storage sites and rule34video.
-                // RedGifs profiles (e.g. /users/) must use yt-dlp as they are playlists.
                 var isRedgifsProfile = host.Contains("redgifs.com") && normalizedUrl.Contains("/users/");
                 var hasSpecializedScraper = host.Contains("pmvhaven.com") || 
                                            host.Contains("hypnotube.com") ||
@@ -141,22 +128,17 @@ namespace GOON.Classes {
                         videoUrl = await _ytDlpService.GetBestVideoUrlAsync(normalizedUrl, cancellationToken);
                         
                         if (!string.IsNullOrEmpty(videoUrl)) {
-                            Logger.Info($"[VideoUrlExtractor] yt-dlp extraction successful");
-                            _urlCache.Set(pageUrl, videoUrl);
+                            // Cache success
+                            PersistentUrlCache.Instance.Set(pageUrl, videoUrl);
                             return videoUrl;
                         }
-                        
-                        Logger.Info($"[VideoUrlExtractor] yt-dlp returned no result, falling back to scraping");
                     } catch (Exception ex) {
                         Logger.Warning($"[VideoUrlExtractor] yt-dlp extraction failed: {ex.Message}, falling back to scraping");
                     }
                 } else if (hasSpecializedScraper) {
-                    Logger.Info($"[VideoUrlExtractor] Using specialized scraper for {host} (faster than yt-dlp)");
+                    Logger.Info($"[VideoUrlExtractor] Using specialized scraper for {host}");
                 }
                 
-                // Fallback to site-specific scraping methods
-                // NOTE: Rule34Video custom scraper URLs don't work (need Referer headers).
-                // Only yt-dlp URLs with download=true work for Rule34Video.
                 if (host.Contains("hypnotube.com")) {
                     videoUrl = await ExtractHypnotubeUrlAsync(normalizedUrl, cancellationToken);
                 } else if (host.Contains("pmvhaven.com")) {
@@ -164,18 +146,14 @@ namespace GOON.Classes {
                 } else if (host.Contains("redgifs.com")) {
                     videoUrl = await ExtractRedgifsUrlAsync(normalizedUrl, cancellationToken);
                 } else if (host.Contains("rule34video.com")) {
-                    // Rule34Video MUST use yt-dlp - custom scraper URLs require Referer headers
-                    // If yt-dlp didn't work above, log warning and return null
                     Logger.Warning($"[VideoUrlExtractor] Rule34Video requires yt-dlp. Custom scraper URLs don't work in MediaElement.");
                     return null;
                 } else {
-                    // Generic extraction for other sites
                     videoUrl = await ExtractGenericVideoUrlAsync(normalizedUrl, cancellationToken);
                 }
 
-                // Cache the result if successful
                 if (videoUrl != null) {
-                    _urlCache.Set(pageUrl, videoUrl);
+                    PersistentUrlCache.Instance.Set(pageUrl, videoUrl);
                 }
 
                 return videoUrl;
@@ -404,7 +382,12 @@ namespace GOON.Classes {
                 // Parse token from JSON response: {"token":"...","session":"...","addr":"..."}
                 var tokenMatch = Regex.Match(authResponse, @"""token""\s*:\s*""([^""]+)""");
                 if (!tokenMatch.Success) {
-                    Logger.Warning("[RedGifs] Failed to extract auth token from response");
+                    // Try alternative pattern
+                    tokenMatch = Regex.Match(authResponse, @"access_token""\s*:\s*""([^""]+)""");
+                }
+
+                if (!tokenMatch.Success) {
+                    Logger.Warning($"[RedGifs] Failed to extract auth token from: {authResponse.Substring(0, Math.Min(authResponse.Length, 100))}");
                     return null;
                 }
                 var token = tokenMatch.Groups[1].Value;
@@ -954,7 +937,7 @@ namespace GOON.Classes {
         /// Clears the URL cache
         /// </summary>
         public void ClearCache() {
-            _urlCache.Clear();
+            PersistentUrlCache.Instance.Clear();
         }
     }
 }

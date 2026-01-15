@@ -21,6 +21,7 @@ namespace GOON.ViewModels {
         private bool _panicHotkeyShift;
         private bool _panicHotkeyAlt;
         private string _panicHotkeyKey;
+        private string _opaquePanicHotkeyKey;
         private ScreenViewer _selectedDefaultMonitor;
         private bool _alwaysOpaque;
 
@@ -133,12 +134,14 @@ namespace GOON.ViewModels {
             _panicHotkeyShift = (settings.PanicHotkeyModifiers & MOD_SHIFT) != 0;
             _panicHotkeyAlt = (settings.PanicHotkeyModifiers & MOD_ALT) != 0;
             _panicHotkeyKey = settings.PanicHotkeyKey ?? "End";
+            _opaquePanicHotkeyKey = settings.OpaquePanicHotkeyKey ?? "Escape";
             _alwaysOpaque = settings.AlwaysOpaque;
 
             _rememberLastPlaylist = settings.RememberLastPlaylist;
             _rememberFilePosition = settings.RememberFilePosition;
+            _enableSuperResolution = settings.EnableSuperResolution;
             _hypnotubeCookies = settings.HypnotubeCookies;
-
+            
             // Load and set the last expanded section
             var lastSection = settings.LastExpandedSection ?? nameof(IsPlaybackExpanded);
             _isPlaybackExpanded = lastSection == nameof(IsPlaybackExpanded);
@@ -234,6 +237,12 @@ namespace GOON.ViewModels {
 
 
 
+        public bool EnableSuperResolution {
+            get => _enableSuperResolution;
+            set => SetProperty(ref _enableSuperResolution, value);
+        }
+        private bool _enableSuperResolution;
+
         public bool LauncherAlwaysOnTop {
             get => _launcherAlwaysOnTop;
             set => SetProperty(ref _launcherAlwaysOnTop, value);
@@ -274,6 +283,11 @@ namespace GOON.ViewModels {
                 SetProperty(ref _panicHotkeyKey, value);
                 OnPropertyChanged(nameof(PanicHotkeyDisplay));
             }
+        }
+
+        public string OpaquePanicHotkeyKey {
+            get => _opaquePanicHotkeyKey;
+            set => SetProperty(ref _opaquePanicHotkeyKey, value);
         }
 
         public string PanicHotkeyDisplay {
@@ -337,10 +351,12 @@ namespace GOON.ViewModels {
             if (PanicHotkeyAlt) modifiers |= MOD_ALT;
             settings.PanicHotkeyModifiers = modifiers;
             settings.PanicHotkeyKey = PanicHotkeyKey ?? "End";
+            settings.OpaquePanicHotkeyKey = OpaquePanicHotkeyKey ?? "Escape";
             settings.AlwaysOpaque = AlwaysOpaque;
 
             settings.RememberLastPlaylist = RememberLastPlaylist;
             settings.RememberFilePosition = RememberFilePosition;
+            settings.EnableSuperResolution = EnableSuperResolution;
             settings.HypnotubeCookies = HypnotubeCookies;
             
             // Save currently expanded section
@@ -351,6 +367,11 @@ namespace GOON.ViewModels {
             else if (IsCookiesExpanded) settings.LastExpandedSection = nameof(IsCookiesExpanded);
             
             settings.Save();
+
+            // Refresh Super Resolution for all active players
+            if (ServiceContainer.TryGet<VideoPlayerService>(out var vps)) {
+                vps.RefreshAllSuperResolution();
+            }
 
             RequestClose?.Invoke(this, System.EventArgs.Empty);
         }

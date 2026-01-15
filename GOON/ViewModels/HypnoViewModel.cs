@@ -11,9 +11,12 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Controls;
 using GOON.Classes;
+using FlyleafLib;
+using FlyleafLib.MediaPlayer;
+using Logger = GOON.Classes.Logger;
 
 namespace GOON.ViewModels {
-    public class HypnoViewModel : ObservableObject {
+    public class HypnoViewModel : ObservableObject, IDisposable {
         private VideoItem[] _files;
         private int _currentPos = 0;
         private int _consecutiveFailures = 0;
@@ -25,14 +28,19 @@ namespace GOON.ViewModels {
         private Uri _expectedSource = null; // Track the source we're expecting MediaOpened for
         private int _recursionDepth = 0; // Track recursion depth to prevent stack overflow
         private const int MaxRecursionDepth = 50; // Maximum recursion depth before aborting
+        private CancellationTokenSource _loadCts; // Added to cancel ongoing URL extraction on Skip
         
         // Pre-buffering for instant playback
-        private readonly VideoDownloadService _downloadService = new VideoDownloadService();
+        private readonly IVideoDownloadService _downloadService;
         private CancellationTokenSource _preBufferCts = null;
         private string _preBufferedUrl = null; // The URL that was pre-buffered
         private string _preBufferedPath = null; // The local cache path for pre-buffered video
         
+        public Config Config { get; private set; }
+        public Player Player { get; private set; }
+        
         private (TimeSpan position, long timestamp) _lastPositionRecord;
+        private DateTime _lastSaveTime = DateTime.MinValue;
         public (TimeSpan position, long timestamp) LastPositionRecord {
             get => _lastPositionRecord;
             set => SetProperty(ref _lastPositionRecord, value);
@@ -51,7 +59,11 @@ namespace GOON.ViewModels {
         private double _opacity;
         public virtual double Opacity {
             get => (App.Settings != null && App.Settings.AlwaysOpaque) ? 1.0 : _opacity;
-            set => SetProperty(ref _opacity, value);
+            set {
+                if (SetProperty(ref _opacity, value)) {
+                    Logger.Debug($"[HypnoViewModel] Opacity changed: {value} (Effective: {Opacity})");
+                }
+            }
         }
 
         public void RefreshOpacity() {
@@ -63,6 +75,7 @@ namespace GOON.ViewModels {
             get => _volume;
             set {
                 if (SetProperty(ref _volume, value)) {
+                    if (Player?.Audio != null) Player.Audio.Volume = (int)(value * 100); // Flyleaf uses 0-100
                     OnPropertyChanged(nameof(ActualVolume));
                 }
             }
@@ -76,7 +89,11 @@ namespace GOON.ViewModels {
         private double _speedRatio = 1.0;
         public virtual double SpeedRatio {
             get => _speedRatio;
-            set => SetProperty(ref _speedRatio, value);
+            set {
+                if (SetProperty(ref _speedRatio, value)) {
+                    if (Player != null) Player.Speed = value; 
+                }
+            }
         }
 
         private MediaState _mediaState = MediaState.Manual;
@@ -93,6 +110,31 @@ namespace GOON.ViewModels {
 
         public bool UseCoordinatedStart { get; set; } = false;
         public string SyncGroupId { get; set; } = null;
+        
+        public IClock ExternalClock {
+            get => Player?.ExternalClock;
+            set {
+                if (Player != null) {
+                    Player.ExternalClock = value;
+                    if (value != null) {
+                        Player.Config.Player.MasterClock = FlyleafLib.MediaPlayer.MasterClock.External;
+                    }
+                }
+            }
+        }
+
+        public long SyncTolerance {
+            get => Player?.Config.Player.SyncTolerance ?? 160000;
+            set {
+                if (Player != null) {
+                    Player.Config.Player.SyncTolerance = value;
+                    OnPropertyChanged(nameof(SyncTolerance));
+                }
+            }
+        }
+
+        public int ClockDriftMs => Player?.Video.ClockDriftMs ?? 0;
+        public double D3DImageLatencyMs => Player?.Video.D3DImageLatencyMs ?? 0;
         
         public bool IsShuffle {
             get => App.Settings?.VideoShuffle ?? true;
@@ -119,13 +161,44 @@ namespace GOON.ViewModels {
         /// Event raised when the entire queue has failed and playback must stop
         /// </summary>
         public event EventHandler TerminalFailure;
+        
+        public void RefreshSuperResolution() {
+            if (_disposed || Player == null) return;
+            Player.Config.Video.SuperResolution = App.Settings?.EnableSuperResolution ?? false;
+        }
 
-        public HypnoViewModel() {
-            SkipCommand = new RelayCommand(_ => PlayNext());
+        private readonly IVideoUrlExtractor _urlExtractor;
+
+        public HypnoViewModel(IVideoUrlExtractor urlExtractor = null, IVideoDownloadService downloadService = null) {
+            _urlExtractor = urlExtractor ?? (ServiceContainer.TryGet<IVideoUrlExtractor>(out var extractor) ? extractor : null) ?? App.UrlExtractor;
+            _downloadService = downloadService ?? (ServiceContainer.TryGet<IVideoDownloadService>(out var ds) ? ds : null) ?? new VideoDownloadService();
+            _opacity = 0.9; // Safe default to ensure window is visible during initial load
+            Config = new Config();
+            
+            Config.Player.AutoPlay = false;
+            Config.Player.MasterClock = MasterClock.Video; 
+            Config.Player.Stats = true; // Enable telemetry stats
+
+            // Increase buffering to prevent stutters on high-resolution/high-bitrate videos
+            // 1 second = 10,000,000 ticks (100ns units)
+            // Tuned for responsiveness: 1.5s total buffer.
+            Config.Demuxer.BufferDuration = 15000000; 
+
+            // Inject AI Super Resolution setting
+            Config.Video.SuperResolution = App.Settings?.EnableSuperResolution ?? false;
+            
+            Player = new Player(Config);
+            
+            // Map Flyleaf events (Named handlers for safe unsubscription)
+            Player.OpenCompleted  += Player_OpenCompleted;
+            Player.PropertyChanged += Player_PropertyChanged;
+
+            SkipCommand = new RelayCommand(_ => PlayNext(true));
             TogglePlayPauseCommand = new RelayCommand(_ => TogglePlayPause());
         }
 
         public virtual void TogglePlayPause() {
+            if (_disposed) return;
             if (MediaState == MediaState.Play) {
                 Pause();
             } else {
@@ -136,6 +209,7 @@ namespace GOON.ViewModels {
         public int CurrentIndex => _currentPos;
 
         public void SetQueue(IEnumerable<VideoItem> files) {
+            if (_disposed) return;
             // Unsubscribe from current item's PropertyChanged event to prevent memory leaks
             // This must be done before changing the queue to ensure proper cleanup
             lock (_loadLock) {
@@ -171,6 +245,8 @@ namespace GOON.ViewModels {
             PlayNext();
         }
 
+
+
         public void JumpToIndex(int index) {
             if (_files == null || index < 0 || index >= _files.Length) return;
             if (_currentPos == index) return;
@@ -183,21 +259,34 @@ namespace GOON.ViewModels {
             }
 
             _currentPos = index;
-            LoadCurrentVideo();
+            _ = LoadCurrentVideo();
         }
 
         private VideoItem _currentItem;
 
-        public virtual void PlayNext() {
+        public virtual async void PlayNext(bool force = false) {
+            if (_disposed) return;
             if (_files == null || _files.Length == 0) return;
 
             // Prevent rapid/concurrent calls to PlayNext() while loading
             // This protects against race conditions when PlayNext() is called multiple times quickly
             lock (_loadLock) {
-                if (_isLoading) {
+                if (_isLoading && !force) {
                     Logger.Warning("PlayNext() called while already loading, skipping to prevent race condition");
                     return;
                 }
+                
+                if (force && _isLoading) {
+                    Logger.Info("PlayNext forced: Interrupting current load to skip.");
+                    _loadCts?.Cancel();
+                    _isLoading = false;
+                    _recursionDepth = 0; // Reset recursion depth on force skip
+                    Stop(); // Interrupt current player if it was trying to open
+                }
+                
+                _loadCts?.Cancel();
+                _loadCts = new CancellationTokenSource();
+                _isLoading = true; // Set loading flag early to prevent other PlayNext calls
             }
 
             // Find the next valid video that hasn't failed too many times
@@ -268,6 +357,7 @@ namespace GOON.ViewModels {
                     Logger.Warning("All videos in queue have failed too many times. Stopping playback.");
                     MediaErrorOccurred?.Invoke(this, new MediaErrorEventArgs("All videos in queue have failed. Please check your video files."));
                     TerminalFailure?.Invoke(this, EventArgs.Empty);
+                    lock (_loadLock) { _isLoading = false; }
                     return;
                 }
                 
@@ -309,18 +399,19 @@ namespace GOON.ViewModels {
                 break; // Found a valid file
             } while (true);
 
-            LoadCurrentVideo();
+            await LoadCurrentVideo();
             Logger.Info($"Next video: #{_currentPos} - {_currentItem?.FileName ?? "Unknown"}");
         }
 
-        private void LoadCurrentVideo() {
+        private async Task LoadCurrentVideo() {
+            if (_disposed) return;
             // Prevent concurrent calls to LoadCurrentVideo
             lock (_loadLock) {
-                if (_isLoading) {
-                    Logger.Warning("LoadCurrentVideo() called while already loading, skipping");
-                    return;
+                if (_isLoading && _currentItem != null) {
+                    // This flag is already set by PlayNext or initial load
                 }
                 _isLoading = true; // Set flag inside lock to prevent race condition
+                IsReady = false; // Reset ready flag as we are starting a new load
                 
                 // Check recursion depth to prevent stack overflow
                 _recursionDepth++;
@@ -353,7 +444,6 @@ namespace GOON.ViewModels {
                 Logger.Info($"LoadCurrentVideo: Processing item '{_currentItem.FileName}' with path: {path}");
                 
                 // CRITICAL FIX: Detect and clean malformed Rule34Video URLs
-                // These URLs have the page URL concatenated with the video URL (e.g., "https://rule34video.com/video/.../function/0/https://...")
                 if (path.Contains("rule34video.com/video/") && path.Contains("/function/0/https://")) {
                     Logger.Warning($"LoadCurrentVideo: Detected malformed Rule34Video URL with page prefix. Attempting to clean...");
                     int httpIndex = path.IndexOf("https://", path.IndexOf("/function/0/"));
@@ -370,45 +460,87 @@ namespace GOON.ViewModels {
                     // For URLs, validate URL format
                     if (!FileValidator.ValidateVideoUrl(path, out string urlValidationError)) {
                         Logger.Warning($"URL validation failed for '{_currentItem.FileName}': {urlValidationError}. Skipping to next video.");
+                        lock (_loadLock) {
+                            _isLoading = false;
+                            _recursionDepth = Math.Max(0, _recursionDepth - 1);
+                        }
                         PlayNext();
                         return;
                     }
                     Logger.Info($"LoadCurrentVideo: URL validation passed for: {path}");
                     
+                    // RESOLVE PAGE URLS: If it's a page URL and not already cached, resolve it now
+                    if (FileValidator.IsPageUrl(path)) {
+                        var cached = _downloadService.GetCachedFilePath(path);
+                        if (string.IsNullOrEmpty(cached) || cached.EndsWith(".partial")) {
+                            Logger.Info($"LoadCurrentVideo: Page URL detected, resolving: {path}");
+                            var token = _loadCts?.Token ?? CancellationToken.None;
+                            var resolved = await _urlExtractor.ExtractVideoUrlAsync(path, token);
+                            if (!string.IsNullOrEmpty(resolved)) {
+                                Logger.Info($"LoadCurrentVideo: Successfully resolved page URL to: {resolved}");
+                                path = resolved;
+                            } else {
+                                if (token.IsCancellationRequested) {
+                                    Logger.Info("LoadCurrentVideo: Resolution cancelled.");
+                                    return;
+                                }
+                                Logger.Warning($"LoadCurrentVideo: Failed to resolve page URL: {path}. Skipping.");
+                                lock (_loadLock) {
+                                    _isLoading = false;
+                                    _recursionDepth = Math.Max(0, _recursionDepth - 1);
+                                }
+                                PlayNext();
+                                return;
+                            }
+                        }
+                    }
+
                     // Check if this URL is cached locally for instant playback
                     var cachedPath = _downloadService.GetCachedFilePath(path);
-                    if (!string.IsNullOrEmpty(cachedPath)) {
-                        Logger.Info($"[PreBuffer] Using cached file: {Path.GetFileName(cachedPath)}");
-                        path = cachedPath;
-                        // Change item behavior to treat as local file now
-                        _currentItem = new VideoItem(cachedPath) {
-                            Title = _currentItem.Title,
-                            Opacity = _currentItem.Opacity,
-                            Volume = _currentItem.Volume,
-                            OriginalPageUrl = _currentItem.OriginalPageUrl
-                        };
-                        _currentItem.PropertyChanged += CurrentItem_PropertyChanged;
+                    if (!string.IsNullOrEmpty(cachedPath) && !cachedPath.EndsWith(".partial")) {
+                        // Concurrent Playback Safetey Check:
+                        // If we are about to use a .downloading file (partial) AND we have a saved playback position,
+                        // we must FORCE streaming instead. Seeking into a non-downloaded area of a local file fails/hangs,
+                        // whereas streaming allows random access to non-buffered areas.
+                        bool forceStream = false;
+                        if (cachedPath.EndsWith(".downloading") && App.Settings?.RememberFilePosition == true) {
+                             // Peeking at the tracking path for the CURRENT item (which is still the URL/PageURL)
+                             var savedPos = PlaybackPositionTracker.Instance.GetPosition(_currentItem.TrackingPath);
+                             if (savedPos.HasValue && savedPos.Value.TotalSeconds > 10) { // arbitrary buffer
+                                 Logger.Info($"[ConcurrentPlayback] Active download detected but found saved position ({savedPos.Value:mm\\:ss}). Forcing stream for safe seeking.");
+                                 forceStream = true;
+                             }
+                        }
+
+                        if (!forceStream) {
+                            Logger.Info($"[PreBuffer] Using cached file: {Path.GetFileName(cachedPath)}");
+                            path = cachedPath;
+                            // Change item behavior to treat as local file now
+                            _currentItem = new VideoItem(cachedPath) {
+                                Title = _currentItem.Title,
+                                Opacity = _currentItem.Opacity,
+                                Volume = _currentItem.Volume,
+                                // CRITICAL: Preserve the OriginalPageUrl from the previous item or use the path if it was a page URL
+                                OriginalPageUrl = !string.IsNullOrEmpty(_currentItem.OriginalPageUrl) ? _currentItem.OriginalPageUrl : (FileValidator.IsPageUrl(path) ? path : null)
+                            };
+                            _currentItem.PropertyChanged += CurrentItem_PropertyChanged;
+                        }
                     }
                 } else {
                     // For local files, check if path is rooted
                     if (!Path.IsPathRooted(path)) {
                         Logger.Warning($"Non-rooted path detected for '{_currentItem.FileName}': {path}. Skipping to next video.");
-                        // Skip to next video instead of stalling
                         PlayNext();
                         return;
                     }
                     
                     // Re-validate file existence before attempting to load
-                    // Files could be deleted or become inaccessible between queue setup and playback
-                    if (!FileValidator.ValidateVideoFile(path, out string validationError)) {
+                    if (!FileValidator.ValidateVideoFile(path, out string validationError) && !path.EndsWith(".downloading")) {
                         Logger.Warning($"File validation failed for '{_currentItem.FileName}': {validationError}. Skipping to next video.");
-                        // Reset loading flag before calling PlayNext() recursively
                         lock (_loadLock) {
                             _isLoading = false;
-                            _recursionDepth = Math.Max(0, _recursionDepth - 1); // Decrement before recursive call
+                            _recursionDepth = Math.Max(0, _recursionDepth - 1);
                         }
-                        // Skip to next video instead of failing
-                        // PlayNext() will check loading state and proceed safely
                         PlayNext();
                         return;
                     }
@@ -418,28 +550,18 @@ namespace GOON.ViewModels {
                 Opacity = _currentItem.Opacity;
                 Volume = _currentItem.Volume;
                 
-                // Stop the current video before changing source to ensure MediaEnded fires reliably
-                // This fixes an issue where MediaEnded doesn't fire on secondary monitors
                 RequestStopBeforeSourceChange?.Invoke(this, EventArgs.Empty);
                 
-                // Set the expected source before changing CurrentSource
-                // This allows OnMediaOpened to verify the opened media matches what we expect
-                // Handle both local files and URLs
                 Uri newSource;
-                if (_currentItem.IsUrl) {
-                    // For URLs, use the URL directly
+                if (_currentItem.IsUrl || path.StartsWith("http")) {
                     newSource = new Uri(path, UriKind.Absolute);
                 } else {
-                // Verify file existence for local paths
                 if (Path.IsPathRooted(path) && !path.StartsWith("http")) {
                    if (!File.Exists(path)) {
                        Logger.Error($"LoadCurrentVideo: File not found at path: {path}");
                    } else {
                        Logger.Info($"LoadCurrentVideo: File verified to exist: {path}");
                        
-                       // CRITICAL FIX: MediaElement (via WMP) has issues with special chars like brackets [] and sometimes spaces or long paths in URIs.
-                       // Convert to 8.3 short path (e.g. PROJECT~1.MOV) to bypass this completely.
-                       // We check for brackets, spaces, and non-ASCII characters.
                        if (path.Contains('[') || path.Contains(']') || path.Contains('#') || path.Contains('%') || path.Contains(' ') || path.Any(c => c > 127)) {
                            string shortPath = GetShortPath(path);
                            if (!string.Equals(shortPath, path, StringComparison.OrdinalIgnoreCase)) {
@@ -469,34 +591,66 @@ namespace GOON.ViewModels {
                 Logger.Info($"LoadCurrentVideo: Generated URI: {newSource.AbsoluteUri}");
                 } // End if(!IsUrl)
                 
-                // Set expected source inside lock for thread safety
                 lock (_loadLock) {
                     _expectedSource = newSource;
+                    
+                    if (App.Settings?.RememberFilePosition == true) {
+                        var savedPos = PlaybackPositionTracker.Instance.GetPosition(_currentItem.TrackingPath);
+                        if (savedPos.HasValue) {
+                            Logger.Info($"[Resume] Found saved position for '{_currentItem.FileName}': {savedPos.Value:mm\\:ss}. Setting pending seek.");
+                            _pendingSeekPosition = savedPos.Value;
+                        }
+                    }
                 }
                 
-                // CRITICAL FIX for single-video looping:
-                // If the new source is the same as current source, MediaElement won't fire MediaOpened
-                // To force reload, set source to null first
                 if (CurrentSource != null && CurrentSource.Equals(newSource)) {
                     CurrentSource = null; // Clear source to force reload
                 }
                 
-                // Set the source - MediaOpened event will trigger playback
                 try {
-                     CurrentSource = newSource;
+                    Config.Demuxer.UserAgent = App.Settings?.UserAgent;
+                    Config.Demuxer.Cookies   = App.Settings?.Cookies;
+                    
+                    // CRITICAL: Inject Referer header for sites like Rule34Video
+                    string referer = _currentItem.OriginalPageUrl;
+                    
+                    // If we resolved a Page URL locally, that page URL is the Referer
+                    if (string.IsNullOrEmpty(referer) && FileValidator.IsPageUrl(_currentItem.FilePath)) {
+                        referer = _currentItem.FilePath;
+                    }
+
+                    if (!string.IsNullOrEmpty(referer)) {
+                        Logger.Info($"LoadCurrentVideo: Injecting Referer header: {referer}");
+                        if (Config.Demuxer.FormatOpt == null) Config.Demuxer.FormatOpt = new System.Collections.Generic.Dictionary<string, string>();
+                        Config.Demuxer.FormatOpt["headers"] = $"Referer: {referer}\r\n";
+                    } else {
+                        // Clear headers if no referer (to prevent leaking)
+                         if (Config.Demuxer.FormatOpt != null && Config.Demuxer.FormatOpt.ContainsKey("headers")) {
+                            Config.Demuxer.FormatOpt.Remove("headers");
+                         }
+                    }
+
+                    Logger.Info($"LoadCurrentVideo: Opening path in Flyleaf: {path}");
+                    CurrentSource = newSource;
+                    Player.Open(path);
+                    
+                    // Monitor for "Opening" stall
+                    _ = Task.Delay(10000).ContinueWith(t => {
+                        if (_disposed) return;
+                        if (_isLoading && Player.Status == Status.Opening) {
+                            Logger.Warning($"LoadCurrentVideo: Player seems stuck in 'Opening' status for 10s. Path: {path}");
+                        }
+                    });
                 } catch (Exception ex) {
-                     Logger.Error($"LoadCurrentVideo: Error setting CurrentSource to '{newSource}': {ex.Message}");
+                     Logger.Error($"LoadCurrentVideo: Error opening '{path}' in Flyleaf: {ex.Message}");
                      OnMediaFailed(ex);
-                }                // This prevents timing issues where Play() is called before MediaElement is ready
+                }
             } catch (Exception ex) {
                 Logger.Error("Error in LoadCurrentVideo()", ex);
-                // Reset loading flag before calling PlayNext() recursively
                 lock (_loadLock) {
                     _isLoading = false;
-                    _recursionDepth = Math.Max(0, _recursionDepth - 1); // Decrement before recursive call
+                    _recursionDepth = Math.Max(0, _recursionDepth - 1);
                 }
-                // Try next video on error
-                // PlayNext() will check loading state and proceed safely
                 PlayNext();
             }
         }
@@ -510,13 +664,57 @@ namespace GOON.ViewModels {
             }
         }
 
+        private void Player_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e) {
+            if (_disposed) return;
+            
+            if (e.PropertyName == nameof(Player.Status)) {
+                if (Player.Status == FlyleafLib.MediaPlayer.Status.Ended) {
+                    OnMediaEnded();
+                }
+            } 
+            else if (e.PropertyName == nameof(Player.CurTime)) {
+                // Update internal state record
+                var position = TimeSpan.FromTicks(Player.CurTime);
+                LastPositionRecord = (position, DateTime.Now.Ticks);
+                
+                // Save to persistent tracker every 3 seconds
+                if ((DateTime.Now - _lastSaveTime).TotalSeconds >= 3 && _currentItem != null) {
+                    SaveCurrentPosition();
+                }
+            }
+        }
+
+        private void SaveCurrentPosition() {
+            if (_currentItem != null && Player != null) {
+                var position = TimeSpan.FromTicks(Player.CurTime);
+                PlaybackPositionTracker.Instance.UpdatePosition(_currentItem.TrackingPath, position);
+                _lastSaveTime = DateTime.Now;
+            }
+        }
+
+        private void Player_OpenCompleted(object sender, FlyleafLib.MediaPlayer.OpenCompletedArgs e) => OnMediaOpened(sender, e);
+
         public void OnMediaEnded() {
-            Logger.Info($"Media ended: {_currentItem?.FileName ?? "Unknown"}");
+            if (_disposed) return;
+            Logger.Info($"[HypnoViewModel] Media ended: {CurrentSource} (Pos: #{_currentPos})");
+            
             _consecutiveFailures = 0; // Reset failure counter on successful playback
             
+            // SESSION RESUME: Clear position so we don't resume at the very end next time
+            if (App.Settings?.RememberFilePosition == true && _currentItem != null) {
+                PlaybackPositionTracker.Instance.ClearPosition(_currentItem.TrackingPath);
+            }
+
             // Clear failure count for this file since it played successfully (thread-safe)
-            if (_currentItem?.FilePath != null) {
-                _fileFailureCounts.TryRemove(_currentItem.FilePath, out _);
+            if (_currentItem != null) {
+                if (_currentItem.FilePath != null) {
+                    _fileFailureCounts.TryRemove(_currentItem.FilePath, out _);
+                }
+                
+                // SESSION RESUME: Clear position so we don't resume at the very end next time
+                if (App.Settings?.RememberFilePosition == true) {
+                    PlaybackPositionTracker.Instance.ClearPosition(_currentItem.TrackingPath);
+                }
             }
             
             // Reset recursion depth on successful completion
@@ -527,7 +725,12 @@ namespace GOON.ViewModels {
             PlayNext();
         }
         
-        public void OnMediaOpened() {
+        public void OnMediaOpened(object sender, FlyleafLib.MediaPlayer.OpenCompletedArgs e) {
+            if (_disposed) return;
+            if (!string.IsNullOrEmpty(e.Error)) {
+                 OnMediaFailed(new Exception(e.Error));
+                 return;
+            }
             // Verify that the opened media matches what we're expecting
             // This prevents stale MediaOpened events from previous sources after SetQueue() changes
             lock (_loadLock) {
@@ -548,24 +751,38 @@ namespace GOON.ViewModels {
             _consecutiveFailures = 0;
             
             // Clear failure count for this file since it opened successfully (thread-safe)
-            // Clear failure count for this file since it opened successfully (thread-safe)
             if (_currentItem?.FilePath != null) {
                 _fileFailureCounts.TryRemove(_currentItem.FilePath, out _);
             }
+
+            // Set initial parameters
+            if (Player.Audio != null) {
+                Player.Audio.Volume = (int)(_volume * 100);
+                Logger.Info($"[HypnoViewModel] Applied volume {Player.Audio.Volume} to new media.");
+            }
+            Player.Speed = _speedRatio;
             
             if (UseCoordinatedStart) {
-        // Coordinated start: Pause, signal Ready, and wait.
-        // We avoid an explicit SyncPosition(Zero) here to allow the resume logic 
-        // in HypnoWindow to set the correct starting position if available.
-        MediaState = MediaState.Pause;
-        IsReady = true;
-        RequestReady?.Invoke(this, EventArgs.Empty);
-    } else {
+                // Coordinated start: Request PLAY to allow buffering to complete, 
+                // but rely on the stopped SharedClock to keep it frozen at frame 0.
+                // NOTE: We MUST call Play() here, not just set MediaState, to trigger the engine.
+                Play();
+                IsReady = true;
+                RequestReady?.Invoke(this, EventArgs.Empty);
+            } else {
                 // Request play now that media is confirmed loaded
                 // This ensures Play() is only called after MediaElement has processed the source
                 Play();
             }
             
+            // Handle pending seek (e.g., from RestoreState) - SEEK AFTER PLAY to ensure it applies
+            if (_pendingSeekPosition.HasValue) {
+                int seekMs = (int)_pendingSeekPosition.Value.TotalMilliseconds;
+                Logger.Info($"[Resume] Seeking to saved position: {_pendingSeekPosition.Value:mm\\:ss} ({seekMs}ms)");
+                Player.Seek(seekMs);
+                _pendingSeekPosition = null;
+            }
+
             // Start pre-buffering the next video for instant playback
             StartPreBuffer();
         }
@@ -575,6 +792,7 @@ namespace GOON.ViewModels {
         /// Prioritizes 1080p+ videos and uses partial downloading for faster startup.
         /// </summary>
         private void StartPreBuffer() {
+            if (_disposed) return;
             // Cancel any existing pre-buffer operation
             _preBufferCts?.Cancel();
             _preBufferCts = new CancellationTokenSource();
@@ -619,9 +837,10 @@ namespace GOON.ViewModels {
             
             var videoUrl = nextItem.FilePath;
             
-            // Already cached (full or partial)?
+            // Already cached (full)?
+            // We ignore .partial files here to ensure we resolve the URL correctly
             var cachedPath = _downloadService.GetCachedFilePath(videoUrl);
-            if (!string.IsNullOrEmpty(cachedPath)) {
+            if (!string.IsNullOrEmpty(cachedPath) && !cachedPath.EndsWith(".partial")) {
                 _preBufferedUrl = videoUrl;
                 _preBufferedPath = cachedPath;
                 Logger.Info($"[PreBuffer] Already cached: {Path.GetFileName(cachedPath)}");
@@ -632,12 +851,38 @@ namespace GOON.ViewModels {
             Logger.Info($"[PreBuffer] Starting partial download for: {nextItem.FileName}");
             _ = Task.Run(async () => {
                 try {
-                    // Use partial download - 150MB is enough for smooth playback start
-                    var localPath = await _downloadService.DownloadPartialAsync(videoUrl, 150 * 1024 * 1024, cancellationToken);
+                    if (_disposed) return;
+                    var finalUrl = videoUrl;
+                    
+                    // If it's a page URL, resolve it first to avoid "Opening" stalls later
+                    if (FileValidator.IsPageUrl(videoUrl)) {
+                        Logger.Info($"[PreBuffer] Resolving site URL: {nextItem.FileName}");
+                        var resolved = await _urlExtractor.ExtractVideoUrlAsync(videoUrl, cancellationToken);
+                        if (!string.IsNullOrEmpty(resolved) && !cancellationToken.IsCancellationRequested) {
+                            finalUrl = resolved;
+                            // Update the item so LoadCurrentVideo picks it up immediately
+                            nextItem.FilePath = resolved; 
+                            Logger.Info($"[PreBuffer] Successfully resolved {nextItem.FileName}");
+                        }
+                    }
+
+                    // Header preparation
+                    var headers = new System.Collections.Generic.Dictionary<string, string>();
+                    if (!string.IsNullOrEmpty(nextItem.OriginalPageUrl)) {
+                        headers["Referer"] = nextItem.OriginalPageUrl;
+                    }
+
+                    // DOWNLOAD TO CACHE: For sites like Rule34Video with short-lived URLs, 
+                    // we MUST download to disk immediately or extraction is wasted.
+                    // We use DownloadVideoAsync (full) to avoid Flyleaf hitches with partial files.
+                    // If the file is massive, it might take a while, but it's the most reliable way.
+                    var localPath = await _downloadService.DownloadVideoAsync(finalUrl, headers, cancellationToken);
+                    
+                    if (_disposed) return;
                     if (!string.IsNullOrEmpty(localPath) && !cancellationToken.IsCancellationRequested) {
-                        _preBufferedUrl = videoUrl;
+                        _preBufferedUrl = finalUrl;
                         _preBufferedPath = localPath;
-                        Logger.Info($"[PreBuffer] Completed: {Path.GetFileName(localPath)}");
+                        Logger.Info($"[PreBuffer] Completed disk cache: {Path.GetFileName(localPath)}");
                     }
                 } catch (OperationCanceledException) {
                     Logger.Info("[PreBuffer] Cancelled");
@@ -648,6 +893,7 @@ namespace GOON.ViewModels {
         }
 
         public void OnMediaFailed(Exception ex) {
+            if (_disposed) return;
             // Reset loading flag on failure
             // This must be done in a lock to ensure thread safety
             lock (_loadLock) {
@@ -679,6 +925,12 @@ namespace GOON.ViewModels {
                     if (_currentItem?.IsUrl == true) {
                         isUrlOpenError = true;
                         specificAdvice = " URL cannot be opened. This typically means: 1) The URL has expired or is no longer valid, 2) Network connectivity issues, 3) The server is unavailable, or 4) DRM-protected content. Try refreshing the URL or checking your network connection.";
+                        
+                        // Clear cache for this page URL so it can be re-extracted on next attempt
+                        if (!string.IsNullOrEmpty(_currentItem?.OriginalPageUrl)) {
+                            Logger.Info($"[HypnoViewModel] Clearing cached URL for '{_currentItem.OriginalPageUrl}' due to playback failure.");
+                            PersistentUrlCache.Instance.Remove(_currentItem.OriginalPageUrl);
+                        }
                     } else {
                         isFileNotFoundError = true;
                         specificAdvice = " File cannot be opened. The file may be locked by another application, corrupted, or you may lack read permissions.";
@@ -730,10 +982,10 @@ namespace GOON.ViewModels {
                 return;
             }
             
-            // Skip to next video to avoid getting stuck
             // Add a delay to allow GPU resources to free up (especially for 0x8898050C errors)
             int delayMs = isCodecError ? 500 : 300;
             _ = Task.Delay(delayMs).ContinueWith(_ => {
+                if (_disposed) return;
                 Application.Current?.Dispatcher.InvokeAsync(() => PlayNext());
             });
         }
@@ -741,6 +993,7 @@ namespace GOON.ViewModels {
         public virtual void Play() {
             MediaState = MediaState.Play;
             IsReady = false; // No longer just "Ready", actually playing
+            Player.Play();
             RequestPlay?.Invoke(this, EventArgs.Empty);
         }
 
@@ -750,14 +1003,19 @@ namespace GOON.ViewModels {
 
         public virtual void Pause() {
             MediaState = MediaState.Pause;
+            Player.Pause();
             RequestPause?.Invoke(this, EventArgs.Empty);
         }
 
         public void Stop() {
+            // Force save position before stopping
+            SaveCurrentPosition();
+            Player.Stop();
             RequestStop?.Invoke(this, EventArgs.Empty);
         }
 
-        public void SyncPosition(TimeSpan position) {
+        public virtual void SyncPosition(TimeSpan position) {
+            Player.Seek((int)position.TotalMilliseconds);
             RequestSyncPosition?.Invoke(this, position);
         }
 
@@ -788,7 +1046,7 @@ namespace GOON.ViewModels {
                 // We'll use a specific method or modify LoadCurrentVideo
                 // Ideally, we can set a property that OnMediaOpened uses to Seek.
                 _pendingSeekPosition = TimeSpan.FromTicks(positionTicks);
-                LoadCurrentVideo();
+                _ = LoadCurrentVideo();
             }
         }
         
@@ -815,6 +1073,34 @@ namespace GOON.ViewModels {
                 Logger.Warning($"Failed to get short path for {path}", ex);
             }
             return path;
+        }
+
+        private bool _disposed = false;
+        public void Dispose() {
+            if (_disposed) return;
+            _disposed = true;
+            
+            Logger.Info($"[HypnoViewModel] Disposing (Current: {CurrentSource})");
+            
+            // Force save position before disposing
+            SaveCurrentPosition();
+            
+            try {
+                if (Player != null) {
+                    Player.OpenCompleted  -= Player_OpenCompleted;
+                    Player.PropertyChanged -= Player_PropertyChanged;
+                    
+                    Player.Dispose();
+                    Logger.Info("[HypnoViewModel] Player disposed successfully");
+                }
+            } catch (Exception ex) {
+                Logger.Error("Error disposing Player in HypnoViewModel", ex);
+            }
+            
+            _preBufferCts?.Cancel();
+            _preBufferCts?.Dispose();
+            _loadCts?.Cancel();
+            _loadCts?.Dispose();
         }
     }
 

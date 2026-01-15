@@ -1,0 +1,94 @@
+# Technical Implementation Guide: Music Sync & Robust Media Playback
+
+This guide documents the critical fixes and optimizations implemented for the Music Sync feature in GOØN. Use these patterns to implement similar functionality in other projects (e.g., Flyleaf).
+
+## 1. yt-dlp Robustness & YouTube Compatibility
+
+### Bypassing JavaScript Runtime Requirements
+By default, `yt-dlp` may fail to extract YouTube URLs if a JavaScript runtime (like Deno or Node.js) is not present. Use the Android player client bypass to maintain portability.
+
+**Implementation (C# / YoutubeDLSharp):**
+```csharp
+var options = new OptionSet();
+options.AddCustomOption("--extractor-args", "youtube:player_client=android");
+
+var result = await _ytdl.RunVideoDataFetch(url, ct: cancellationToken, overrideOptions: options);
+```
+
+### Proper Process Tree Termination
+Spawning `yt-dlp` or `ffmpeg` can leave orphaned processes if the main app is closed or a task is cancelled. Ensure you kill the entire process tree.
+
+```csharp
+// Inside your extraction method
+try {
+    // ... execution logic ...
+} finally {
+    // Force cleanup of any hung processes
+    foreach (var proc in Process.GetProcessesByName("yt-dlp").Where(p => p.StartTime >= startTime)) {
+        try { proc.Kill(entireProcessTree: true); } catch { }
+    }
+}
+```
+
+---
+
+## 2. WPF MediaElement Sync & Looping Logic
+
+### Decoupled Looping (Independent Music)
+When a short video loops, you often want the background music to **continue playing** rather than restarting. Disable strict frame-by-frame position syncing and handle looping independently.
+
+**Sync Loop (HypnoWindow.xaml.cs):**
+```csharp
+// DISABLE this line to allow music to play through video loops
+// _viewModel.SyncSecondaryMedia(FirstVideo.Position, SecondaryMedia);
+```
+
+**Independent Music Looping:**
+```csharp
+private void SecondaryMedia_MediaEnded(object sender, RoutedEventArgs e) {
+    if (SecondaryMedia != null && _viewModel.MediaState == MediaState.Play) {
+        SecondaryMedia.Position = TimeSpan.Zero;
+        SecondaryMedia.Play();
+    }
+}
+```
+
+### Auto-Muting Primary Audio
+To prevent audio clash when a synced music track is matched, automatically mute the primary video element.
+
+```csharp
+if (!string.IsNullOrEmpty(musicUrl)) {
+    SecondarySource = new Uri(musicUrl);
+    Volume = 0; // Mute main video
+}
+```
+
+---
+
+## 3. The "Bracket & Square" Path Fix (WPF Critical)
+The standard WPF `MediaElement` (using Windows Media Player backend) often fails to load files containing brackets `[]`, `#`, or `%` in the URI. Converting to **8.3 Short Paths** is the most reliable bypass.
+
+```csharp
+[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+private static extern uint GetShortPathName(string lpszLongPath, StringBuilder lpszShortPath, uint cchBuffer);
+
+private string GetShortPath(string path) {
+    if (string.IsNullOrEmpty(path) || !File.Exists(path)) return path;
+    
+    // Check if path contains problematic characters for MediaElement
+    if (path.Contains('[') || path.Contains(']') || path.Contains('#') || path.Contains(' ') || path.Any(c => c > 127)) {
+        var sb = new StringBuilder(255);
+        if (GetShortPathName(path, sb, (uint)sb.Capacity) > 0) return sb.ToString();
+    }
+    return path;
+}
+```
+
+---
+
+## 4. Sequential Match Extraction
+Instead of slow BPM analysis, use duration-weighted sequential matching for "instant" playlist setup.
+
+1. Extract all playlist metadata in one batch via `yt-dlp --flat-playlist`.
+2. Map `AddedFiles[i]` to `PlaylistTracks[i % PlaylistTracks.Count]`.
+3. Cache the `AutoMatchedMusicUrl` in your [VideoItem](file:///c:/Users/bulle/.gemini/antigravity/playground/astral-mariner/GOON/ViewModels/VideoItem.cs#16-140) model.

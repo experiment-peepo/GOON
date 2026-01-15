@@ -11,7 +11,7 @@ namespace GOON.Classes {
     /// Service for downloading and caching videos to disk for instant playback.
     /// Videos are cached in %LOCALAPPDATA%\GOON\VideoCache and auto-cleaned after 10 days.
     /// </summary>
-    public class VideoDownloadService {
+    public class VideoDownloadService : IVideoDownloadService {
         private static readonly HttpClient _httpClient = new HttpClient {
             Timeout = TimeSpan.FromMinutes(10) // Allow long downloads for 4K content
         };
@@ -63,6 +63,10 @@ namespace GOON.Classes {
             var path = GetCachePath(url);
             if (File.Exists(path)) return path;
             
+            // Check for active download (concurrent playback)
+            var downloadingPath = path + ".downloading";
+            if (File.Exists(downloadingPath)) return downloadingPath;
+
             // Check for partial cache
             var partialPath = path + ".partial";
             if (File.Exists(partialPath)) return partialPath;
@@ -74,7 +78,7 @@ namespace GOON.Classes {
         /// Downloads a video to the cache directory. Returns the local file path on success.
         /// Highest quality is always downloaded (determined by yt-dlp which provides the URL).
         /// </summary>
-        public async Task<string> DownloadVideoAsync(string url, CancellationToken cancellationToken = default) {
+        public async Task<string> DownloadVideoAsync(string url, System.Collections.Generic.Dictionary<string, string> headers = null, CancellationToken cancellationToken = default) {
             if (string.IsNullOrEmpty(url)) return null;
             
             try {
@@ -94,24 +98,32 @@ namespace GOON.Classes {
                 var tempPath = cachePath + ".downloading";
                 
                 try {
-                    using (var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)) {
-                        response.EnsureSuccessStatusCode();
-                        
-                        var totalBytes = response.Content.Headers.ContentLength ?? 0;
-                        Logger.Info($"[VideoCache] Starting download: {totalBytes / (1024 * 1024):F1} MB");
-                        
-                        using (var contentStream = await response.Content.ReadAsStreamAsync())
-                        using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true)) {
-                            var buffer = new byte[81920]; // 80KB buffer for efficient disk writes
-                            long totalRead = 0;
-                            int bytesRead;
-                            
-                            while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0) {
-                                await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-                                totalRead += bytesRead;
+                    using (var request = new HttpRequestMessage(HttpMethod.Get, url)) {
+                        if (headers != null) {
+                            foreach (var header in headers) {
+                                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
                             }
+                        }
+                        
+                        using (var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)) {
+                            response.EnsureSuccessStatusCode();
                             
-                            Logger.Info($"[VideoCache] Download complete: {totalRead / (1024 * 1024):F1} MB");
+                            var totalBytes = response.Content.Headers.ContentLength ?? 0;
+                            Logger.Info($"[VideoCache] Starting download: {totalBytes / (1024 * 1024):F1} MB");
+                            
+                            using (var contentStream = await response.Content.ReadAsStreamAsync())
+                            using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.Read, 81920, true)) {
+                                var buffer = new byte[81920]; // 80KB buffer for efficient disk writes
+                                long totalRead = 0;
+                                int bytesRead;
+                                
+                                while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0) {
+                                    await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                                    totalRead += bytesRead;
+                                }
+                                
+                                Logger.Info($"[VideoCache] Download complete: {totalRead / (1024 * 1024):F1} MB");
+                            }
                         }
                     }
                     
@@ -147,9 +159,10 @@ namespace GOON.Classes {
         /// </summary>
         /// <param name="url">The video URL to download</param>
         /// <param name="maxBytes">Maximum bytes to download. Default is 150MB (middle of 100-200MB range)</param>
+        /// <param name="headers">Optional HTTP headers</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Path to the partial cache file, or null on failure</returns>
-        public async Task<string> DownloadPartialAsync(string url, long maxBytes = 150 * 1024 * 1024, CancellationToken cancellationToken = default) {
+        public async Task<string> DownloadPartialAsync(string url, long maxBytes = 150 * 1024 * 1024, System.Collections.Generic.Dictionary<string, string> headers = null, CancellationToken cancellationToken = default) {
             if (string.IsNullOrEmpty(url)) return null;
             
             try {
@@ -180,6 +193,11 @@ namespace GOON.Classes {
                 try {
                     // Create request with Range header for partial download
                     using (var request = new HttpRequestMessage(HttpMethod.Get, url)) {
+                        if (headers != null) {
+                            foreach (var header in headers) {
+                                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                            }
+                        }
                         request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, maxBytes - 1);
                         
                         using (var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)) {
@@ -194,7 +212,7 @@ namespace GOON.Classes {
                             Logger.Info($"[VideoCache] Partial download started: {totalBytes / (1024 * 1024):F1} MB (full: {isFullDownload})");
                             
                             using (var contentStream = await response.Content.ReadAsStreamAsync())
-                            using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true)) {
+                            using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.Read, 81920, true)) {
                                 var buffer = new byte[81920];
                                 long totalRead = 0;
                                 int bytesRead;

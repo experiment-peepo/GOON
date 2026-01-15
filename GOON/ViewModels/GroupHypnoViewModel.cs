@@ -70,10 +70,10 @@ namespace GOON.ViewModels {
             }
         }
 
-        public override void PlayNext() {
+        public override async void PlayNext(bool force = false) {
             // Optimistically set state to Play so icon reflects intentionality
             this.MediaState = System.Windows.Controls.MediaState.Play;
-            foreach (var child in _children) child.PlayNext();
+            foreach (var child in _children) child.PlayNext(force);
         }
 
         public override void ForcePlay() {
@@ -101,7 +101,26 @@ namespace GOON.ViewModels {
             set {
                 base.SpeedRatio = value;
                 foreach (var child in _children) child.SpeedRatio = value;
+
+                // Sync speed with SharedClock to maintain synchronization
+                var masterClock = _children.FirstOrDefault(c => c.ExternalClock != null)?.ExternalClock as Classes.SharedClock;
+                if (masterClock != null) {
+                    masterClock.Speed = value;
+                }
             }
+        }
+
+        public override void SyncPosition(TimeSpan position) {
+            // Update the shared clock if any child uses it
+            var masterClock = _children.FirstOrDefault(c => c.ExternalClock != null)?.ExternalClock as Classes.SharedClock;
+            if (masterClock != null) {
+                masterClock.Seek(position.Ticks);
+            }
+
+            foreach (var child in _children) {
+                child.SyncPosition(position);
+            }
+            base.SyncPosition(position);
         }
     }
 }

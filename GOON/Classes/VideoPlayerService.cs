@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Controls;
 using GOON.Windows;
 using GOON.ViewModels;
 using System.Diagnostics;
@@ -20,6 +21,7 @@ namespace GOON.Classes {
         public System.Collections.ObjectModel.ObservableCollection<ActivePlayerViewModel> ActivePlayers { get; } = new System.Collections.ObjectModel.ObservableCollection<ActivePlayerViewModel>();
         private readonly LruCache<string, bool> _fileExistenceCache;
         private System.Windows.Threading.DispatcherTimer _masterSyncTimer;
+        private readonly SharedClock _sharedClock = new SharedClock();
 
         /// <summary>
         /// Event raised when a media error occurs during playback
@@ -36,6 +38,7 @@ namespace GOON.Classes {
         }
 
         private DateTime _lastSessionSave = DateTime.MinValue;
+        private DateTime _lastSyncStallLog = DateTime.MinValue;
 
         private void MasterSyncTimer_Tick(object sender, EventArgs e) {
             // ... (Existing sync logic) ...
@@ -87,83 +90,100 @@ namespace GOON.Classes {
                 if (playerList.Count == 0) continue;
 
                 // --- 1. Ready Check Phase ---
-                // Check if all players in this group are either Playing or Ready
-                var allReady = playerList.All(p => p.ViewModel.MediaState == System.Windows.Controls.MediaState.Play || p.ViewModel.IsReady);
+                // Flyleaf handles its own ready state, but we can check Status
+                var allReady = playerList.All(p => p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Playing || p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Opening);
                 
                 if (allReady) {
-                    // Triggers playback for any players that are waiting in the Ready state
-                    var waitingPlayers = playerList.Where(p => p.ViewModel.IsReady).ToList();
+                    // Triggers playback for any players that are waiting (Flyleaf usually plays on open if configured)
+                    var waitingPlayers = playerList.Where(p => p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Opening).ToList();
                     foreach (var p in waitingPlayers) {
-                        p.ViewModel.ForcePlay();
+                         // No explicit action needed for Coordinated Start yet, will be handled by Clock in Phase 4
                     }
                 }
 
                 // --- 2. Synchronization Phase ---
-                if (playerList.Count < 2) continue; // No sync needed for single monitors
+                // We sync groups of 2+ players, OR single players using ExternalClock (to handle AutoPlay=false start)
+                if (playerList.Count < 2 && !playerList.Any(p => p.ViewModel.ExternalClock != null)) continue;
 
-                // Only sync players that are actually playing and have reported a position/timestamp
-                var activePlayers = playerList
-                    .Where(p => p.ViewModel.MediaState == System.Windows.Controls.MediaState.Play && 
-                                p.ViewModel.LastPositionRecord.timestamp > 0)
-                    .ToList();
-
-                if (activePlayers.Count < 2) continue;
-
-                // Use the first active player in the group as the master
-                var master = activePlayers[0];
-                var masterRecord = master.ViewModel.LastPositionRecord;
-                
-                // Calculate master's "virtual current position" by adding elapsed time since the record was taken
-                var elapsedSinceRecord = Stopwatch.GetElapsedTime(masterRecord.timestamp);
-                var masterVirtualPos = masterRecord.position + elapsedSinceRecord;
-
-                // Sync all other players in the group to the master's virtual position
-                for (int i = 1; i < activePlayers.Count; i++) {
-                    var follower = activePlayers[i];
+                // --- 2a. Flyleaf External Clock Sync (Automatic) ---
+                // If any player in the group uses ExternalClock, we rely on its internal sync.
+                // We still need to enforce muting of followers.
+                if (playerList.Any(p => p.ViewModel.ExternalClock != null)) {
+                    var clock = _sharedClock;
                     
-                    // Enforce single audio stream: Mute all followers
-                    if (follower.ViewModel.Volume > 0) {
-                        follower.ViewModel.Volume = 0;
+                    bool anyBuffering = playerList.Any(p => p.ViewModel.Player.IsBuffering || p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Opening);
+                    bool allOpening = playerList.All(p => p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Opening);
+                    
+                    // A player is "buffered enough" if it's Playing, OR if it's Ready (paused at first frame), 
+                    // AND it's not currently in the specific 'Opening' or 'IsBuffering' states.
+                    bool allBuffered = playerList.All(p => 
+                        (p.ViewModel.IsReady || p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Playing) && 
+                        !p.ViewModel.Player.IsBuffering && 
+                        p.ViewModel.Player.Status != FlyleafLib.MediaPlayer.Status.Opening);
+
+                    if (allOpening && clock.Ticks > 0) {
+                        Logger.Info($"[Sync] All players opening/restarting. Resetting SharedClock.");
+                        clock.Reset();
                     }
 
-                    var followerRecord = follower.ViewModel.LastPositionRecord;
-                    
-                    // Calculate follower's virtual position
-                    var followerElapsed = Stopwatch.GetElapsedTime(followerRecord.timestamp);
-                    var followerVirtualPos = followerRecord.position + followerElapsed;
-                    
-                    // Calculate drift (Master - Follower)
-                    // If drift > 0, follower is BEHIND (needs to speed up)
-                    // If drift < 0, follower is AHEAD (needs to slow down)
-                    var drift = masterVirtualPos - followerVirtualPos;
-                    var absDriftMs = Math.Abs(drift.TotalMilliseconds);
-                    
-                    if (absDriftMs < 100) {
-                        // Zone 1: Sweet Spot (< 100ms)
-                        // Increased tolerance to avoid fighting natural 4K jitter
-                        if (follower.ViewModel.SpeedRatio != 1.0) {
-                            follower.ViewModel.SpeedRatio = 1.0;
-                        }
-                    } else if (absDriftMs < 300) {
-                        // Zone 2: Gentle Nudging (100ms - 300ms)
-                        // Use only modest speed changes to prevent decoder strain
-                        // Log only on state change to avoid spam
-                        if (follower.ViewModel.SpeedRatio == 1.0) Logger.Info($"Nudging: Drift {absDriftMs:F0}ms. Micro-adjustment.");
-                        
-                        // Use very conservative speed changes for 4K stability
-                        if (drift.TotalMilliseconds > 0) {
-                            follower.ViewModel.SpeedRatio = 1.05; // 5% boost (safer for 4K60)
+                    if (clock.IsRunning) {
+                        if (anyBuffering) {
+                            var bufferingPlayers = playerList
+                                .Where(p => p.ViewModel.Player.IsBuffering || p.ViewModel.Player.Status == FlyleafLib.MediaPlayer.Status.Opening)
+                                .Select(p => $"{p.ScreenDeviceName} ({(p.ViewModel.Player.IsBuffering ? "Buffering" : "Opening")})");
+                            
+                            Logger.Info($"[Sync] Pausing SharedClock. Stalled players: [{string.Join(", ", bufferingPlayers)}]");
+                            clock.Pause();
                         } else {
-                            follower.ViewModel.SpeedRatio = 0.95; // 5% slow
+                            // Ensure all ready players are playing if clock is running
+                            foreach (var p in playerList) {
+                                if (p.ViewModel.MediaState == MediaState.Pause && p.ViewModel.IsReady) {
+                                    Logger.Info($"[Sync] Resuming {p.ScreenDeviceName} to match running SharedClock.");
+                                    p.ViewModel.Play();
+                                }
+                            }
                         }
-                    } else {
-                        // Zone 3: Hard Correct (> 300ms)
-                        // Snap immediately if drift is noticeable
-                        Logger.Info($"Drift {absDriftMs:F0}ms > 300ms threshold. Sharp seeking follower.");
-                        follower.ViewModel.SyncPosition(masterVirtualPos);
-                        follower.ViewModel.SpeedRatio = 1.0;
+                    } else if (allBuffered && playerList.Any()) {
+                        // If everyone is ready/buffered and the clock is stopped, START IT.
+                        // This handles the "Auto-play after skip" requirement.
+                        Logger.Info($"[Sync] All players ready/buffered. Starting/Resuming SharedClock. (Ticks: {clock.Ticks})");
+                        clock.Start();
+                        foreach (var p in playerList) {
+                            if (p.ViewModel.MediaState != MediaState.Play) {
+                                p.ViewModel.Play();
+                            }
+                        }
+                    } else if (!clock.IsRunning) {
+                        // Throttled logging to avoid flooding the log file
+                        if ((DateTime.Now - _lastSyncStallLog).TotalSeconds > 5) {
+                            var states = string.Join(", ", playerList.Select(p => 
+                                $"{p.ScreenDeviceName}: Ready={p.ViewModel.IsReady}, Sts={p.ViewModel.Player.Status}, Buf={p.ViewModel.Player.IsBuffering}"));
+                            Logger.Debug($"[Sync-Stall] Clock Stopped. Waiting for: {states}");
+                            _lastSyncStallLog = DateTime.Now;
+                        }
                     }
+
+                    // Sync speed across all players in the group
+                    foreach (var p in playerList) {
+                        if (Math.Abs(p.ViewModel.SpeedRatio - clock.Speed) > 0.01) {
+                            Logger.Info($"[Sync] Syncing speed for {p.ScreenDeviceName} to {clock.Speed}");
+                            p.ViewModel.SpeedRatio = clock.Speed;
+                        }
+                    }
+
+                    var primary = playerList.FirstOrDefault();
+                    foreach (var p in playerList) {
+                        if (p != primary && p.ViewModel.Volume > 0) {
+                            Logger.Info($"[Sync] Muting follower on {p.ScreenDeviceName}");
+                            p.ViewModel.Volume = 0;
+                        }
+                    }
+                    continue; // Skip legacy drift correction
                 }
+
+                // --- 2b. Legacy Sync (for single/uncoordinated players, if any) ---
+                // ... (rest of legacy sync if needed, but for now we skip)
+                continue;
             }
         }
 
@@ -225,6 +245,7 @@ namespace GOON.Classes {
         /// Pauses all currently playing videos
         /// </summary>
         public void PauseAll() {
+            _sharedClock.Pause();
             List<HypnoWindow> playersSnapshot;
             lock (_playersLock) {
                 playersSnapshot = players.ToList();
@@ -236,6 +257,7 @@ namespace GOON.Classes {
         /// Resumes all paused videos
         /// </summary>
         public void ContinueAll() {
+            _sharedClock.Start();
             List<HypnoWindow> playersSnapshot;
             lock (_playersLock) {
                 playersSnapshot = players.ToList();
@@ -247,6 +269,13 @@ namespace GOON.Classes {
         /// Stops and disposes all video players
         /// </summary>
         public void StopAll() {
+            _masterSyncTimer?.Stop();
+            _sharedClock.Pause();
+            _sharedClock.Reset();
+
+            // SESSION RESUME: Immediate save of positions when session ends
+            PlaybackPositionTracker.Instance.SaveSync();
+
             // Unregister all screen hotkeys
             ActivePlayers.Clear();
 
@@ -339,6 +368,19 @@ namespace GOON.Classes {
         }
 
         /// <summary>
+        /// Refreshes the Super Resolution setting of all players
+        /// </summary>
+        public void RefreshAllSuperResolution() {
+            List<HypnoWindow> playersSnapshot;
+            lock (_playersLock) {
+                playersSnapshot = players.ToList();
+            }
+            foreach (var w in playersSnapshot) {
+                w.ViewModel.RefreshSuperResolution();
+            }
+        }
+
+        /// <summary>
         /// Applies the prevent minimize setting to all windows
         /// </summary>
         public void ApplyPreventMinimizeSetting() {
@@ -386,8 +428,8 @@ namespace GOON.Classes {
                 }
 
                 w.ViewModel.SetQueue(queue);
+                w.ViewModel.ExternalClock = _sharedClock;
                 
-                // --- Synchronized Start for Coordinated Groups ---
                 if (!string.IsNullOrEmpty(w.ViewModel.SyncGroupId)) {
                     if (sharedCoordinatedIndex == -1) {
                         // First player in the group picks the random starting point
@@ -395,6 +437,10 @@ namespace GOON.Classes {
                     } else {
                         // Subsequent players follow the first one immediately
                         w.ViewModel.JumpToIndex(sharedCoordinatedIndex);
+                        
+                        // MUTE FOLLOWERS IMMEDIATELY
+                        w.ViewModel.Volume = 0;
+                        Logger.Info($"[Sync] Initialized follower on {w.ScreenDeviceName} as muted.");
                     }
                 }
 
@@ -405,7 +451,6 @@ namespace GOON.Classes {
                     if (resumeState.SpeedRatio != 1.0) w.ViewModel.SpeedRatio = resumeState.SpeedRatio;
                 }
 
-
                 lock (_playersLock) {
                     players.Add(w);
                 }
@@ -415,10 +460,8 @@ namespace GOON.Classes {
                     ActivePlayers.Add(new ActivePlayerViewModel(sv.ToString(), w.ViewModel));
                 }
                 
-                // Stagger window creation to prevent simultaneous GPU resource allocation
-                // This prevents Media Foundation from being overwhelmed when loading multiple high-res videos
-                // 300ms delay allows each MediaElement to initialize before the next one starts
-                await System.Threading.Tasks.Task.Delay(300);
+                // Stagger window creation slightly (reduced for Flyleaf)
+                await System.Threading.Tasks.Task.Delay(100);
             }
 
             // Consolidate "All Screens" players into a single control

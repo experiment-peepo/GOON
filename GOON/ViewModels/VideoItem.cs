@@ -14,13 +14,32 @@ namespace GOON.ViewModels {
     }
 
     public class VideoItem : ObservableObject {
-        public string FilePath { get; }
+        private string _filePath;
+        public string FilePath {
+            get => _filePath;
+            set => SetProperty(ref _filePath, value);
+        }
         
         /// <summary>
         /// Gets whether this item is a URL (not a local file path)
         /// </summary>
         public bool IsUrl => Uri.TryCreate(FilePath, UriKind.Absolute, out Uri uri) && 
                              (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
+        /// <summary>
+        /// Gets a stable identifier for tracking playback position.
+        /// Prioritizes OriginalPageUrl, then normalized FilePath.
+        /// </summary>
+        public string TrackingPath {
+            get {
+                var path = !string.IsNullOrEmpty(OriginalPageUrl) ? OriginalPageUrl : FilePath;
+                if (string.IsNullOrEmpty(path)) return string.Empty;
+
+                // Basic normalization: trim and lowercase
+                // PlaybackPositionTracker will do deeper normalization (like Path.GetFullPath for files)
+                return path.Trim();
+            }
+        }
         
         /// <summary>
         /// Optional title extracted from the video page. If null or empty, FileName will fall back to URL-based extraction.
